@@ -2,3 +2,5 @@ SHARED_SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 export PATH="$SHARED_SCRIPTS_DIR/bin:$HOME/.local/bin:$PATH"
 
 alias ta='term-agent'
+alias edc='enter-container'
+alias chrome='start-chrome'
