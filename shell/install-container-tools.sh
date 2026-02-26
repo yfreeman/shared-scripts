@@ -1,7 +1,14 @@
 #!/bin/bash
 set -e
 
-echo "=== Installing development tools ==="
+TARGET_USER="${1:-node}"
+if [ "$TARGET_USER" = "root" ]; then
+    TARGET_HOME="/root"
+else
+    TARGET_HOME="/home/$TARGET_USER"
+fi
+
+echo "=== Installing development tools (user: $TARGET_USER) ==="
 
 # Install neovim (latest from GitHub releases)
 echo "Installing neovim..."
@@ -43,9 +50,8 @@ echo "✓ zellij installed"
 # Install FiraCode Nerd Font
 echo "Installing FiraCode Nerd Font..."
 sudo mkdir -p /usr/share/fonts/truetype/firacode-nerd-font
-# Fonts are mounted to /home/node/.local/share/fonts (onCreateCommand runs as node user)
-if [ -d "/home/node/.local/share/fonts/FiraCode" ]; then
-    sudo cp /home/node/.local/share/fonts/FiraCode/*.ttf /usr/share/fonts/truetype/firacode-nerd-font/
+if [ -d "$TARGET_HOME/.local/share/fonts/FiraCode" ]; then
+    sudo cp "$TARGET_HOME/.local/share/fonts/FiraCode/"*.ttf /usr/share/fonts/truetype/firacode-nerd-font/
     sudo fc-cache -f -v
     echo "✓ FiraCode Nerd Font installed"
 else
@@ -61,32 +67,42 @@ zellij --version
 echo ""
 echo "=== All tools installed successfully ==="
 
-# Prepare directories for node user
+# Prepare directories for target user
 echo ""
-echo "=== Preparing directories for node user ==="
-sudo mkdir -p /home/node/.npm /home/node/.cache /home/node/.local/bin /home/node/.claude/tmp
-sudo chown -R node:node /home/node/.npm /home/node/.cache /home/node/.local /home/node/.claude
-sudo chmod -R 755 /home/node/.npm /home/node/.cache /home/node/.local /home/node/.claude
+echo "=== Preparing directories for $TARGET_USER ==="
+if [ "$TARGET_USER" != "root" ]; then
+    sudo mkdir -p "$TARGET_HOME/.npm" "$TARGET_HOME/.cache" "$TARGET_HOME/.local/bin" "$TARGET_HOME/.claude/tmp"
+    sudo chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.npm" "$TARGET_HOME/.cache" "$TARGET_HOME/.local" "$TARGET_HOME/.claude"
+    sudo chmod -R 755 "$TARGET_HOME/.npm" "$TARGET_HOME/.cache" "$TARGET_HOME/.local" "$TARGET_HOME/.claude"
+fi
 echo "✓ Directories prepared"
 
-# Install user tools as node user
+# Install user tools as target user
 echo ""
-echo "=== Installing user tools (as node) ==="
+echo "=== Installing user tools (as $TARGET_USER) ==="
 
-# Install Claude Code as node user
+run_as_user() {
+    if [ "$TARGET_USER" = "root" ]; then
+        bash -c "$1"
+    else
+        sudo su - "$TARGET_USER" -c "$1"
+    fi
+}
+
+# Install Claude Code
 echo "Installing Claude Code..."
-sudo su - node -c 'curl -fsSL https://claude.ai/install.sh | bash'
+run_as_user 'curl -fsSL https://claude.ai/install.sh | bash'
 echo "✓ Claude Code installed"
 
-# Install Claude Code plugins as node user
-echo "Installing Claude Code plugins..."
-sudo su - node -c 'TMPDIR=/home/node/.claude/tmp claude plugin install osgrep'
-echo "✓ Claude Code plugins installed"
-
-# Install osgrep as node user
+# Install osgrep
 echo "Installing osgrep..."
-sudo su - node -c 'npm install -g osgrep'
+run_as_user 'npm install -g osgrep'
 echo "✓ osgrep installed"
+
+# Install Claude Code plugins
+#echo "Installing Claude Code plugins..."
+#run_as_user "osgrep install-claude-code"
+#echo "✓ Claude Code plugins installed"
 
 # Run shared-scripts installer
 echo ""
@@ -96,4 +112,13 @@ if [ -f "/usr/local/shared-scripts/install.sh" ]; then
     echo "✓ shared-scripts installed"
 else
     echo "Warning: /usr/local/shared-scripts/install.sh not found, skipping..."
+fi
+
+# Setup .claude symlinks
+echo ""
+echo "=== Setting up .claude symlinks ==="
+if [ -d "$TARGET_HOME/.claude" ]; then
+    (cd "$TARGET_HOME" && bash /usr/local/shared-scripts/shell/setup-claude-links.sh)
+else
+    echo "Warning: $TARGET_HOME/.claude not found, skipping..."
 fi

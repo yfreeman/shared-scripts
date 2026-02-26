@@ -28,8 +28,15 @@ if [ -z "$CONTAINER_NAME" ]; then
     fi
 fi
 
-# Detect the user to use (try 'node', fallback to 'root' or 'vscode')
-if docker exec "$CONTAINER_NAME" id -u node &>/dev/null; then
+# Detect the user: check devcontainer.json remoteUser first, then fall back to probing
+DEVCONTAINER_JSON=".devcontainer/devcontainer.json"
+if [ -f "$DEVCONTAINER_JSON" ] && command -v jq &>/dev/null; then
+    REMOTE_USER=$(jq -r '.remoteUser // empty' "$DEVCONTAINER_JSON")
+fi
+
+if [ -n "$REMOTE_USER" ]; then
+    USER="$REMOTE_USER"
+elif docker exec "$CONTAINER_NAME" id -u node &>/dev/null; then
     USER="node"
 elif docker exec "$CONTAINER_NAME" id -u vscode &>/dev/null; then
     USER="vscode"
