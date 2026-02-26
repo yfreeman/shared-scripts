@@ -99,6 +99,11 @@ echo "Installing osgrep..."
 run_as_user 'npm install -g osgrep'
 echo "✓ osgrep installed"
 
+# Install Codex
+echo "Installing Codex..."
+run_as_user 'npm i -g @openai/codex'
+echo "✓ Codex installed"
+
 # Install Claude Code plugins
 #echo "Installing Claude Code plugins..."
 #run_as_user "osgrep install-claude-code"

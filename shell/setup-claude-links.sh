@@ -1,6 +1,6 @@
 #!/bin/bash
-# Setup .claude symlinks from shared-scripts.
-# Run from the root of a project that has a .claude directory.
+# Setup .claude and .codex symlinks from shared-scripts.
+# Run from the root of a project that has .claude and/or .codex directories.
 # Derives the shared-scripts path from this script's own location.
 
 set -e
@@ -8,19 +8,20 @@ set -e
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 SHARED_SCRIPTS_PATH=$(dirname "$SCRIPT_DIR")
 
-if [ ! -d ".claude" ]; then
-    echo "Error: no .claude directory found in $(pwd)"
+if [ ! -d ".claude" ] && [ ! -d ".codex" ]; then
+    echo "Error: no .claude or .codex directory found in $(pwd)"
     exit 1
 fi
 
-echo "=== Setting up .claude symlinks ==="
+echo "=== Setting up .claude/.codex symlinks ==="
 echo "  shared-scripts: $SHARED_SCRIPTS_PATH"
 echo "  project:        $(pwd)"
 
 link_items() {
-    local category="$1"
+    local base_dir="$1"
+    local category="$2"
     local src_dir="$SHARED_SCRIPTS_PATH/$category"
-    local dst_dir=".claude/$category"
+    local dst_dir="$base_dir/$category"
 
     [ -d "$src_dir" ] || return 0
 
@@ -32,17 +33,25 @@ link_items() {
         dst="$dst_dir/$name"
 
         if [ -e "$dst" ] && [ ! -L "$dst" ]; then
-            echo "  skipping $category/$name (exists as regular file)"
+            echo "  skipping $base_dir/$category/$name (exists as regular file)"
             continue
         fi
 
         ln -sf "$item" "$dst"
-        echo "  linked: $category/$name"
+        echo "  linked: $base_dir/$category/$name"
     done
 }
 
-link_items "agents"
-link_items "commands"
-link_items "skills"
+if [ -d ".claude" ]; then
+    link_items ".claude" "agents"
+    link_items ".claude" "commands"
+    link_items ".claude" "skills"
+fi
 
-echo "✓ .claude symlinks set up"
+if [ -d ".codex" ]; then
+    link_items ".codex" "agents"
+    link_items ".codex" "commands"
+    link_items ".codex" "skills"
+fi
+
+echo "✓ .claude/.codex symlinks set up"
