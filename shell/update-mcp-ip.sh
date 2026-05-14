@@ -4,7 +4,7 @@
 
 set -e
 
-MCP_FILE="/Users/jfreeman1271/Projects/wp-dev/.mcp.json"
+MCP_FILE="$(pwd)/.mcp.json"
 
 echo "🔍 Detecting Docker host IP address..."
 

@@ -1,27 +1,39 @@
 #!/bin/bash
 # Setup .claude and .codex symlinks from shared-scripts.
-# Run from the root of a project that has .claude and/or .codex directories.
-# Derives the shared-scripts path from this script's own location.
+#
+# Usage:
+#   setup-claude-links.sh [target-dir]
+#
+# target-dir defaults to the current working directory. Pass "$HOME" to
+# install user-level symlinks (~/.claude, ~/.codex), which Claude Code and
+# Codex pick up across all projects — no per-project setup needed.
+#
+# The target must already contain .claude and/or .codex (Claude/Codex create
+# these on first run). Derives the shared-scripts path from this script's
+# own location.
 
 set -e
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 SHARED_SCRIPTS_PATH=$(dirname "$SCRIPT_DIR")
 
-if [ ! -d ".claude" ] && [ ! -d ".codex" ]; then
-    echo "Error: no .claude or .codex directory found in $(pwd)"
+TARGET_DIR="${1:-.}"
+TARGET_DIR=$(cd "$TARGET_DIR" && pwd)
+
+if [ ! -d "$TARGET_DIR/.claude" ] && [ ! -d "$TARGET_DIR/.codex" ]; then
+    echo "Error: no .claude or .codex directory found in $TARGET_DIR"
     exit 1
 fi
 
 echo "=== Setting up .claude/.codex symlinks ==="
 echo "  shared-scripts: $SHARED_SCRIPTS_PATH"
-echo "  project:        $(pwd)"
+echo "  target:         $TARGET_DIR"
 
 link_items() {
     local base_dir="$1"
     local category="$2"
     local src_dir="$SHARED_SCRIPTS_PATH/$category"
-    local dst_dir="$base_dir/$category"
+    local dst_dir="$TARGET_DIR/$base_dir/$category"
 
     [ -d "$src_dir" ] || return 0
 
@@ -42,13 +54,13 @@ link_items() {
     done
 }
 
-if [ -d ".claude" ]; then
+if [ -d "$TARGET_DIR/.claude" ]; then
     link_items ".claude" "agents"
     link_items ".claude" "commands"
     link_items ".claude" "skills"
 fi
 
-if [ -d ".codex" ]; then
+if [ -d "$TARGET_DIR/.codex" ]; then
     link_items ".codex" "agents"
     link_items ".codex" "commands"
     link_items ".codex" "skills"

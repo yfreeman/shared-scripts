@@ -1,1 +1,3 @@
 .browser_profile/
+.env
+.env.local

@@ -109,21 +109,4 @@ echo "✓ Codex installed"
 #run_as_user "osgrep install-claude-code"
 #echo "✓ Claude Code plugins installed"
 
-# Run shared-scripts installer
-echo ""
-echo "=== Running shared-scripts/install.sh ==="
-if [ -f "/usr/local/shared-scripts/install.sh" ]; then
-    bash /usr/local/shared-scripts/install.sh
-    echo "✓ shared-scripts installed"
-else
-    echo "Warning: /usr/local/shared-scripts/install.sh not found, skipping..."
-fi
 
-# Setup .claude symlinks
-echo ""
-echo "=== Setting up .claude symlinks ==="
-if [ -d "$TARGET_HOME/.claude" ]; then
-    (cd "$TARGET_HOME" && bash /usr/local/shared-scripts/shell/setup-claude-links.sh)
-else
-    echo "Warning: $TARGET_HOME/.claude not found, skipping..."
-fi
