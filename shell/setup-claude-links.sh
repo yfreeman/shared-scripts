@@ -49,7 +49,7 @@ link_items() {
             continue
         fi
 
-        ln -sf "$item" "$dst"
+        ln -sfn "$item" "$dst"
         echo "  linked: $base_dir/$category/$name"
     done
 }
