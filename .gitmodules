@@ -1,0 +1,3 @@
+[submodule "python/term-agent"]
+	path = python/term-agent
+	url = git@github.com:yfreeman/term-agent.git
