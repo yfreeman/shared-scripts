@@ -7,14 +7,17 @@ A collection of personal CLI scripts organized by language, with a unified `bin/
 ```
 shared-scripts/
 ├── .rc              # Shell config: adds bin/ to PATH, aliases
+├── .gitmodules      # Submodules — currently python/term-agent
 ├── install.sh       # One-time setup script
 ├── bin/             # Entrypoints for all scripts (wrappers/symlinks)
 ├── python/          # Python scripts (each in its own subdirectory)
+│   └── term-agent/  # ↳ git submodule (github.com/yfreeman/term-agent)
 ├── node/            # Node.js scripts
 ├── shell/           # Shell scripts (includes setup-claude-links.sh)
 ├── agents/          # Claude Code agents (symlinked into .claude/agents/)
 ├── commands/        # Claude Code commands (symlinked into .claude/commands/)
 └── skills/          # Claude Code skills (symlinked into .claude/skills/)
+                     #   terminal-session → ../python/term-agent/terminal-session-skill
 ```
 
 ## Installation
@@ -26,7 +29,13 @@ source ~/.zshrc  # or ~/.bashrc
 
 `install.sh` will:
 - Install [uv](https://github.com/astral-sh/uv) if not present
-- Add `source .../shared-scripts/.rc` to your shell rc file (`~/.zshrc`, `~/.bashrc`, or `~/.profile` depending on `$SHELL`)
+- `uv tool install` the `term-agent` CLI from
+  `git+https://github.com/yfreeman/term-agent.git` (pipx-equivalent)
+- `git submodule update --init --recursive` so submodules
+  (currently `python/term-agent`) are populated — needed so
+  `skills/terminal-session` resolves
+- Add `source .../shared-scripts/.rc` to your shell rc file
+  (`~/.zshrc`, `~/.bashrc`, or `~/.profile` depending on `$SHELL`)
 
 Works on macOS and Linux.
 
@@ -124,6 +133,12 @@ The chrome-browser agent can query page elements using Testing Library's semanti
 | File | Description |
 |---|---|
 | `worktree` | Git worktree management skill |
+| `terminal-session` | Persistent tmux-backed terminal sessions. Symlink to `../python/term-agent/terminal-session-skill/` (so the skill ships from the term-agent submodule — run `git submodule update --init` if it's empty). |
+
+`setup-claude-links.sh` passes `ln -sfn` so re-running it on top of
+existing dir-symlinks replaces the link in place instead of dereferencing
+into the target directory (which would create a self-referencing loop
+inside the source skill dir).
 
 ## Scripts
 
