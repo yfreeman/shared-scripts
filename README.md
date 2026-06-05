@@ -13,12 +13,20 @@ shared-scripts/
 ├── python/          # Python scripts (each in its own subdirectory)
 │   └── term-agent/  # ↳ git submodule (github.com/yfreeman/term-agent)
 ├── node/            # Node.js scripts
-├── shell/           # Shell scripts (includes setup-claude-links.sh)
+├── shell/           # Shell scripts (includes setup-claude-links.sh, age-*.sh)
+├── age-store/       # Shared age secret recipients: keys/ + groups.conf (see its README)
 ├── agents/          # Claude Code agents (symlinked into .claude/agents/)
 ├── commands/        # Claude Code commands (symlinked into .claude/commands/)
 └── skills/          # Claude Code skills (symlinked into .claude/skills/)
                      #   terminal-session → ../python/term-agent/terminal-session-skill
+                     #   age-secrets      → manage age-store secrets
 ```
+
+## Secrets (age-store)
+
+`age-store/` is the single source of truth for which SSH keys can decrypt which
+secrets, across repos and devices. The `age-{recipients,encrypt,decrypt,reencrypt}`
+commands (in `bin/`) operate it. See [`age-store/README.md`](age-store/README.md).
 
 ## Installation
 
