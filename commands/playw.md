@@ -8,4 +8,10 @@ When investigating a page, prefer `window.TL`-driven `eval` over screenshots. On
 
 The agent always ends its response with a `Session: <name>` line describing the session it used and the current browser state (e.g. `Session: wp-admin — logged into WordPress admin, on Posts list`).
 
-When you receive this, the session name is already in your context for the current conversation turn. On the **next** `/playw` invocation for the same task, pass that session name in the agent prompt so it reattaches to the same browser context instead of starting fresh. No memory write needed — it stays in context."
+When you receive this, the session name is already in your context for the current conversation turn. On the **next** `/playw` invocation for the same task, pass that session name in the agent prompt so it reattaches to the same browser context instead of starting fresh. No memory write needed — it stays in context.
+
+## Running multiple agents concurrently
+
+If you spawn more than one playwright-browser agent at the same time (e.g. to work on independent parts of a task in parallel), **give each one a distinct session name in its task prompt**. If none is given, the agent defaults to a session named `agent` — two concurrent agents both defaulting to `agent` will attach to the same session and clobber each other's tabs, cookies, and navigation state.
+
+Pick names that reflect what each agent is doing (`checkout-flow`, `search-flow`) or a simple index (`agent-1`, `agent-2`) if the tasks are interchangeable. This applies whether the agents are working against the same external browser or not — sessions are namespaced by name, not by task."
