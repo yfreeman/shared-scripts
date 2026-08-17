@@ -22,8 +22,8 @@ playwright-cli state-save my-auth-state.json
 # Load storage state from file
 playwright-cli state-load my-auth-state.json
 
-# Reload page to apply cookies
-playwright-cli open https://example.com
+# Reload page to apply cookies (agent must already be attached — see SKILL.md)
+playwright-cli -s=agent goto https://example.com
 ```
 
 ### Storage State File Format
@@ -232,19 +232,20 @@ playwright-cli run-code "async page => {
 ### Authentication State Reuse
 
 ```bash
-# Step 1: Login and save state
-playwright-cli open https://app.example.com/login
-playwright-cli snapshot
-playwright-cli fill e1 "user@example.com"
-playwright-cli fill e2 "password123"
-playwright-cli click e3
+# Step 1: Attach, login, and save state
+playwright-attach agent
+playwright-cli -s=agent goto https://app.example.com/login
+playwright-cli -s=agent snapshot
+playwright-cli -s=agent fill e1 "user@example.com"
+playwright-cli -s=agent fill e2 "password123"
+playwright-cli -s=agent click e3
 
 # Save the authenticated state
-playwright-cli state-save auth.json
+playwright-cli -s=agent state-save auth.json
 
 # Step 2: Later, restore state and skip login
-playwright-cli state-load auth.json
-playwright-cli open https://app.example.com/dashboard
+playwright-cli -s=agent state-load auth.json
+playwright-cli -s=agent goto https://app.example.com/dashboard
 # Already logged in!
 ```
 
@@ -252,17 +253,18 @@ playwright-cli open https://app.example.com/dashboard
 
 ```bash
 # Set up authentication state
-playwright-cli open https://example.com
-playwright-cli eval "() => { document.cookie = 'session=abc123'; localStorage.setItem('user', 'john'); }"
+playwright-attach agent
+playwright-cli -s=agent goto https://example.com
+playwright-cli -s=agent eval "() => { document.cookie = 'session=abc123'; localStorage.setItem('user', 'john'); }"
 
 # Save state to file
-playwright-cli state-save my-session.json
+playwright-cli -s=agent state-save my-session.json
 
 # ... later, in a new session ...
 
 # Restore state
-playwright-cli state-load my-session.json
-playwright-cli open https://example.com
+playwright-cli -s=agent state-load my-session.json
+playwright-cli -s=agent goto https://example.com
 # Cookies and localStorage are restored!
 ```
 

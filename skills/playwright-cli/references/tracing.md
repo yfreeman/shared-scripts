@@ -5,16 +5,19 @@ Capture detailed execution traces for debugging and analysis. Traces include DOM
 ## Basic Usage
 
 ```bash
+# Attach first (see SKILL.md Connection model) — never `open`
+playwright-attach agent
+
 # Start trace recording
-playwright-cli tracing-start
+playwright-cli -s=agent tracing-start
 
 # Perform actions
-playwright-cli open https://example.com
-playwright-cli click e1
-playwright-cli fill e2 "test"
+playwright-cli -s=agent goto https://example.com
+playwright-cli -s=agent click e1
+playwright-cli -s=agent fill e2 "test"
 
 # Stop trace recording
-playwright-cli tracing-stop
+playwright-cli -s=agent tracing-stop
 ```
 
 ## Trace Output Files
@@ -64,22 +67,22 @@ When you start tracing, Playwright creates a `traces/` directory with several fi
 ### Debugging Failed Actions
 
 ```bash
-playwright-cli tracing-start
-playwright-cli open https://app.example.com
+playwright-cli -s=agent tracing-start
+playwright-cli -s=agent goto https://app.example.com
 
 # This click fails - why?
-playwright-cli click e5
+playwright-cli -s=agent click e5
 
-playwright-cli tracing-stop
+playwright-cli -s=agent tracing-stop
 # Open trace to see DOM state when click was attempted
 ```
 
 ### Analyzing Performance
 
 ```bash
-playwright-cli tracing-start
-playwright-cli open https://slow-site.com
-playwright-cli tracing-stop
+playwright-cli -s=agent tracing-start
+playwright-cli -s=agent goto https://slow-site.com
+playwright-cli -s=agent tracing-stop
 
 # View network waterfall to identify slow resources
 ```
@@ -88,15 +91,15 @@ playwright-cli tracing-stop
 
 ```bash
 # Record a complete user flow for documentation
-playwright-cli tracing-start
+playwright-cli -s=agent tracing-start
 
-playwright-cli open https://app.example.com/checkout
-playwright-cli fill e1 "4111111111111111"
-playwright-cli fill e2 "12/25"
-playwright-cli fill e3 "123"
-playwright-cli click e4
+playwright-cli -s=agent goto https://app.example.com/checkout
+playwright-cli -s=agent fill e1 "4111111111111111"
+playwright-cli -s=agent fill e2 "12/25"
+playwright-cli -s=agent fill e3 "123"
+playwright-cli -s=agent click e4
 
-playwright-cli tracing-stop
+playwright-cli -s=agent tracing-stop
 # Trace shows exact sequence of events
 ```
 
@@ -117,10 +120,10 @@ playwright-cli tracing-stop
 
 ```bash
 # Trace the entire flow, not just the failing step
-playwright-cli tracing-start
-playwright-cli open https://example.com
+playwright-cli -s=agent tracing-start
+playwright-cli -s=agent goto https://example.com
 # ... all steps leading to the issue ...
-playwright-cli tracing-stop
+playwright-cli -s=agent tracing-stop
 ```
 
 ### 2. Clean Up Old Traces

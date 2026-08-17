@@ -5,26 +5,26 @@ Capture browser automation sessions as video for debugging, documentation, or ve
 ## Basic Recording
 
 ```bash
-# Open browser first
-playwright-cli open
+# Attach to the running browser first (see SKILL.md Connection model)
+playwright-attach agent
 
 # Start recording
-playwright-cli video-start demo.webm
+playwright-cli -s=agent video-start demo.webm
 
 # Add a chapter marker for section transitions
-playwright-cli video-chapter "Getting Started" --description="Opening the homepage" --duration=2000
+playwright-cli -s=agent video-chapter "Getting Started" --description="Opening the homepage" --duration=2000
 
 # Navigate and perform actions
-playwright-cli goto https://example.com
-playwright-cli snapshot
-playwright-cli click e1
+playwright-cli -s=agent goto https://example.com
+playwright-cli -s=agent snapshot
+playwright-cli -s=agent click e1
 
 # Add another chapter
-playwright-cli video-chapter "Filling Form" --description="Entering test data" --duration=2000
-playwright-cli fill e2 "test input"
+playwright-cli -s=agent video-chapter "Filling Form" --description="Entering test data" --duration=2000
+playwright-cli -s=agent fill e2 "test input"
 
 # Stop and save
-playwright-cli video-stop
+playwright-cli -s=agent video-stop
 ```
 
 ## Best Practices
