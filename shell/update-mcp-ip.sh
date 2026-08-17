@@ -101,6 +101,26 @@ else
     echo "✓ Updated $MCP_FILE"
 fi
 
+# Update PLAYWRIGHT_CDP_ENDPOINT in .env
+ENV_FILE="$(pwd)/.env"
+CDP_VALUE="http://$HOST_IP:9222"
+
+if [ ! -f "$ENV_FILE" ]; then
+    echo "PLAYWRIGHT_CDP_ENDPOINT=$CDP_VALUE" > "$ENV_FILE"
+    echo "✓ Created $ENV_FILE with PLAYWRIGHT_CDP_ENDPOINT=$CDP_VALUE"
+elif grep -q "^PLAYWRIGHT_CDP_ENDPOINT=" "$ENV_FILE"; then
+    CURRENT_CDP=$(grep "^PLAYWRIGHT_CDP_ENDPOINT=" "$ENV_FILE" | cut -d= -f2-)
+    if [ "$CURRENT_CDP" = "$CDP_VALUE" ]; then
+        echo "✓ PLAYWRIGHT_CDP_ENDPOINT is already up to date"
+    else
+        sed -i "s|^PLAYWRIGHT_CDP_ENDPOINT=.*|PLAYWRIGHT_CDP_ENDPOINT=$CDP_VALUE|" "$ENV_FILE"
+        echo "✓ Updated PLAYWRIGHT_CDP_ENDPOINT: $CURRENT_CDP → $CDP_VALUE"
+    fi
+else
+    echo "PLAYWRIGHT_CDP_ENDPOINT=$CDP_VALUE" >> "$ENV_FILE"
+    echo "✓ Added PLAYWRIGHT_CDP_ENDPOINT=$CDP_VALUE to $ENV_FILE"
+fi
+
 echo ""
 echo "Current configuration:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

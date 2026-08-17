@@ -1,3 +1,5 @@
 .browser_profile/
 .env
 .env.local
+.playwright-cli/
+.claude/
