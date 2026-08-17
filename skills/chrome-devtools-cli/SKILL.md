@@ -12,6 +12,25 @@ The `chrome-devtools` CLI drives a background `chrome-devtools-mcp` daemon (Unix
 
 **Never create script files to interact with the browser.** Do not write `.js`, `.ts`, `.sh`, or any other files to automate browser actions. Every browser interaction must be a direct `chrome-devtools` CLI call. Work interactively — run a command, observe the output, run the next command based on what you see.
 
+## Sessions
+
+Unlike `playwright-cli`'s `-s=<name>` flag, `chrome-devtools` has no documented session concept — but the daemon does support an **undocumented** `--sessionId` flag (verified against `chrome-devtools-mcp` v1.7.0 source; hidden from `--help`, absent from `docs/cli.md`). Each distinct `--sessionId` runs its own daemon process against its own socket, so parallel sessions each get an independent *selected page* — even though they can all attach to and see the same underlying browser. Without this, two `cdc` agents run at the same time would fight over which page is selected.
+
+`--sessionId` must match `/^[a-fA-F0-9-]+$/` (hex + dashes, i.e. UUID-shaped) — arbitrary names like `agent-1` are rejected. `chrome-devtools-attach` handles this for you: pass a human-readable session name as its first argument and it deterministically hashes it into a valid `--sessionId` (same name always maps to the same id, so reusing a name reattaches to the same daemon).
+
+```bash
+# Attach with a named session — derives and starts a scoped daemon
+chrome-devtools-attach checkout-flow
+# stderr shows: chrome-devtools-attach: sessionId=<derived-uuid>
+
+# Every subsequent call for this session must repeat --sessionId
+chrome-devtools --sessionId=<derived-uuid> navigate_page --url "https://example.com"
+chrome-devtools --sessionId=<derived-uuid> take_snapshot
+chrome-devtools --sessionId=<derived-uuid> stop
+```
+
+Capture the derived id from `chrome-devtools-attach`'s stderr (last line, `chrome-devtools-attach: sessionId=<value>`) at the start of a session and reuse it on every command for that task. If no session name is given, `chrome-devtools-attach` starts the default unscoped daemon (same as omitting `--sessionId`) — fine for single-agent use, but always pass a session name when you know or suspect other `cdc` agents may run concurrently against the same browser.
+
 ## Environment Variables
 
 `PLAYWRIGHT_CDP_ENDPOINT` — this is the same variable used by `playwright-cli`. `chrome-devtools-attach` resolves it and connects to that running Chrome instance, verifying reachability before use, in this order:
@@ -33,6 +52,7 @@ chrome-devtools stop
 
 ```bash
 # Always attach first — never let the daemon auto-start a fresh browser
+# Give it a session name if other cdc agents may run concurrently (see Sessions)
 chrome-devtools-attach
 
 # Navigate
@@ -160,9 +180,12 @@ chrome-devtools take_memory_snapshot ./snap.heapsnapshot
 ## Service Management
 
 ```bash
-chrome-devtools-attach                         # resolve endpoint and attach (always use this, never bare `start`)
-chrome-devtools status                         # check if daemon is running
-chrome-devtools stop                           # stop daemon
+chrome-devtools-attach                              # resolve endpoint and attach (always use this, never bare `start`)
+chrome-devtools-attach checkout-flow                # same, scoped to a named session — see Sessions
+chrome-devtools status                              # check default-session daemon status
+chrome-devtools --sessionId=<derived-uuid> status   # check a named session's daemon status
+chrome-devtools stop                                # stop default-session daemon
+chrome-devtools --sessionId=<derived-uuid> stop     # stop a named session's daemon
 ```
 
 Do not run bare `chrome-devtools start` or `chrome-devtools start --headless false` — both launch a new browser. `chrome-devtools start --browserUrl <url>` does attach to a specific URL without launching, but prefer `chrome-devtools-attach` so the endpoint resolution and reachability check run.
@@ -179,11 +202,11 @@ chrome-devtools status   # verify install
 0. **ALWAYS run these two commands first — no exceptions:**
    ```bash
    which chrome-devtools || npm install -g chrome-devtools-mcp@latest
-   chrome-devtools-attach
+   chrome-devtools-attach <session-name>   # pass a session name if the caller gave you one — see Sessions
    ```
-   `chrome-devtools-attach` attaches to the existing Chrome session via `PLAYWRIGHT_CDP_ENDPOINT` (falling back to `127.0.0.1:9222` only if it's reachable). It must run before any other `chrome-devtools` command. If it exits non-zero — no reachable endpoint found, or the daemon fails to connect — surface the error and stop. Never work around this by launching a new browser.
+   `chrome-devtools-attach` attaches to the existing Chrome session via `PLAYWRIGHT_CDP_ENDPOINT` (falling back to `127.0.0.1:9222` only if it's reachable). It must run before any other `chrome-devtools` command. If it exits non-zero — no reachable endpoint found, or the daemon fails to connect — surface the error and stop. Never work around this by launching a new browser. Capture the derived `sessionId` from its stderr output if a session name was given, and repeat `--sessionId=<value>` on every subsequent command.
 
-1. After attaching, use `chrome-devtools` commands directly — do **not** call `start`/`status`.
+1. After attaching, use `chrome-devtools` commands directly (with `--sessionId=<value>` on every call if you used one) — do **not** call `start`/`status`.
 2. Call `take_snapshot` to get element `uid` values.
 3. Use `click`, `fill`, `evaluate_script`, etc. State persists across commands.
 4. After each action, observe the output and decide the next step — do not pre-plan a sequence of steps in a script.
