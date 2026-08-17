@@ -1,46 +1,154 @@
 ---
 name: playwright-cli
 description: Automate browser interactions, test web pages and work with Playwright tests.
-allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
+allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*) Bash(playwright-cdp) Bash(playwright-attach:*)
 ---
 
 # Browser Automation with playwright-cli
 
-## Environment Variables
+## Connection model
 
-`PLAYWRIGHT_CDP_ENDPOINT` — if set, `playwright-cli attach --cdp=<value>` is used
-instead of `playwright-cli open` when starting a session (connects to an
-existing browser). Use `playwright-cli detach` instead of `playwright-cli close`
-when tearing down.
+**Never launch a new browser. Only attach to one that is already running via CDP.** Do not use `playwright-cli open` — not as a fallback, not in examples, not for any reason. Every workflow in this skill is attach-only.
 
-Before starting any session, resolve the value with:
+Use `playwright-attach <session>` to resolve the endpoint and attach in one statically-analyzable command:
+
 ```bash
-# check shell env first, then fall back to .env in the project root
-PLAYWRIGHT_CDP_ENDPOINT="${PLAYWRIGHT_CDP_ENDPOINT:-$(grep -s '^PLAYWRIGHT_CDP_ENDPOINT=' .env | cut -d= -f2-)}"
+playwright-attach <session>
 ```
 
-If `PLAYWRIGHT_CDP_ENDPOINT` is non-empty after this check, attach instead of open:
+`playwright-attach` (and the underlying `playwright-cdp`) resolve `PLAYWRIGHT_CDP_ENDPOINT` in this order, verifying reachability before use:
+
+1. Already set in the shell environment.
+2. A `.env` file found by walking up from `$PWD`.
+3. A `.env` in the shared-scripts install root.
+4. Last resort: `http://127.0.0.1:9222`, but only if something actually answers there.
+
+If none of the above yield a reachable endpoint, `playwright-attach`/`playwright-cdp` **exit non-zero with a clear error**. Treat that as a hard stop: surface the error to the caller. Do not fall back to `playwright-cli open` to work around it — that means no browser is available for this task, not that one should be launched.
+
+Once the named session exists, every subsequent command operates on it via `-s=<session>`. Use `playwright-cli detach` instead of `playwright-cli close` when tearing down — `close` kills the browser, `detach` leaves the external browser running.
+
 ```bash
-playwright-cli attach --cdp="$PLAYWRIGHT_CDP_ENDPOINT"
-# … interact …
-playwright-cli detach
+# probe before attaching — reuse if already present
+playwright-cli list --json
+
+# attach
+playwright-attach agent
+
+# subsequent calls
+playwright-cli -s=agent snapshot
+playwright-cli -s=agent click e15
+
+# detach when done — leaves the external browser running
+playwright-cli -s=agent detach
 ```
+
+Always pass `-s=<session-name>` so parallel agents don't collide. Use the session name the caller gives you in the task; if none was provided, default to `agent`.
+
+## Testing Library injection (mandatory)
+
+After attaching, register two init scripts on the context. Playwright fires them on every existing and future page automatically — no manual re-injection on navigation.
+
+The bundle is co-located with this skill at `${CLAUDE_SKILL_DIR}/testing-library-dom.umd.min.js`, so the path resolves correctly regardless of where the skill is installed (personal, project, or plugin) or what directory the session started in.
+
+```bash
+TL_BUNDLE="${CLAUDE_SKILL_DIR}/testing-library-dom.umd.min.js"
+playwright-cli -s=<session> run-code "async page => {
+  const ctx = page.context();
+  await ctx.addInitScript({ path: '$TL_BUNDLE' });
+  await ctx.addInitScript(() => {
+    const rebind = () => {
+      if (window.TestingLibraryDom && document.body) {
+        const TL = window.TestingLibraryDom;
+        TL.screen = TL.getQueriesForElement(document.body);
+        window.TL = TL;
+      }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', rebind);
+    } else {
+      rebind();
+    }
+  });
+  return 'init-scripts-registered';
+}"
+```
+
+**Why two scripts and a rebind?** `addInitScript` runs after document creation but **before** any page scripts — at that point `document.body` is still null. The TL bundle's `screen` object captures `document.body` at module-evaluation time, so without the rebind it falls into a stub branch and every `screen.getByRole(...)` call throws `For queries bound to document.body a global document has to be available`. The second init script defers a rebind to `DOMContentLoaded`, which gives `screen` a fresh queries object pointed at the live body.
+
+Verify on a real page (not `chrome://*` — `addScriptTag` is blocked there):
+
+```bash
+playwright-cli -s=<session> --raw eval "() => !!window.TL && typeof TL.screen.getByRole === 'function'"
+# expects: true
+```
+
+If `window.TL` is ever missing (e.g. a page opened in a different context), re-run the `run-code` step.
+
+## Targeting strategy
+
+**Snapshots are expensive — avoid them by default.** Only take a snapshot when other methods have failed or you need structural/positional information you cannot obtain via JS.
+
+Order of preference:
+
+1. **Testing Library via injected `window.TL` (primary).** Query and act entirely through `eval` — no snapshot needed:
+   ```bash
+   playwright-cli -s=agent eval "() => { TL.screen.getByRole('button', { name: /submit/i }).click(); }"
+   playwright-cli -s=agent eval "() => TL.screen.getByLabelText('Email').value"
+   playwright-cli -s=agent eval "() => TL.screen.queryByText('Error') ? true : false"
+   ```
+   This bypasses Playwright's locator layer entirely, which is the brittle part over CDP.
+
+2. **Script execution via `eval` or `run-code` (secondary).** When TL queries aren't a natural fit, drive the page with direct JS:
+   ```bash
+   playwright-cli -s=agent eval "() => document.querySelector('#submit-btn').click()"
+   playwright-cli -s=agent eval "() => document.title"
+   playwright-cli -s=agent run-code "async page => page.url()"
+   ```
+
+3. **CSS selectors (tertiary).** When the selector is stable and known:
+   ```bash
+   playwright-cli -s=agent click "#main > button.submit"
+   ```
+
+4. **Snapshot + ref (last resort).** Only use when the above methods fail, you need to discover unknown structure, or pixel-level layout information is required. Take the narrowest snapshot possible:
+   ```bash
+   playwright-cli -s=agent snapshot --depth=4
+   playwright-cli -s=agent snapshot e34        # scoped to one element
+   ```
+   Never take a full-page snapshot just to find a single element.
+
+5. **Playwright locators (avoid).** `getByRole(...)`, `getByText(...)` as locator *strings* passed to `click`/`fill` are brittle over CDP. Use `window.TL` via `eval` instead.
+
+### Testing Library query priority
+
+Inside `eval` calls, follow the standard Testing Library guidance:
+
+1. `getByRole` — buttons, headings, links, form controls
+2. `getByLabelText` — form fields with labels
+3. `getByPlaceholderText` — inputs with placeholder text
+4. `getByText` — visible text content
+5. `getByDisplayValue` — current value of form elements
+6. `getByAltText` — images, area elements
+7. `getByTitle` — title attribute
+8. `getByTestId` — last resort
+
+All have `getBy`/`getAllBy`/`queryBy`/`queryAllBy`/`findBy`/`findAllBy` variants.
 
 ## Quick start
 
 ```bash
-# open new browser (or attach if PLAYWRIGHT_CDP_ENDPOINT is set — see Environment Variables)
-playwright-cli open
+# attach to the already-running browser (see Connection model)
+playwright-attach agent
 # navigate to a page
-playwright-cli goto https://playwright.dev
+playwright-cli -s=agent goto https://playwright.dev
 # interact with the page using refs from the snapshot
-playwright-cli click e15
-playwright-cli type "page.click"
-playwright-cli press Enter
+playwright-cli -s=agent click e15
+playwright-cli -s=agent type "page.click"
+playwright-cli -s=agent press Enter
 # take a screenshot (rarely used, as snapshot is more common)
-playwright-cli screenshot
-# close the browser
-playwright-cli close
+playwright-cli -s=agent screenshot
+# detach when done — leaves the browser running
+playwright-cli -s=agent detach
 ```
 
 ## Commands
@@ -48,35 +156,33 @@ playwright-cli close
 ### Core
 
 ```bash
-playwright-cli open
-# open and navigate right away
-playwright-cli open https://example.com/
-playwright-cli goto https://playwright.dev
-playwright-cli type "search query"
-playwright-cli click e3
-playwright-cli dblclick e7
+playwright-attach agent
+playwright-cli -s=agent goto https://playwright.dev
+playwright-cli -s=agent type "search query"
+playwright-cli -s=agent click e3
+playwright-cli -s=agent dblclick e7
 # --submit presses Enter after filling the element
-playwright-cli fill e5 "user@example.com"  --submit
-playwright-cli drag e2 e8
+playwright-cli -s=agent fill e5 "user@example.com"  --submit
+playwright-cli -s=agent drag e2 e8
 # drop files or data onto an element (from outside the page)
-playwright-cli drop e4 --path=./image.png
-playwright-cli drop e4 --data="text/plain=hello world"
-playwright-cli hover e4
-playwright-cli select e9 "option-value"
-playwright-cli upload ./document.pdf
-playwright-cli check e12
-playwright-cli uncheck e12
-playwright-cli snapshot
-playwright-cli eval "document.title"
-playwright-cli eval "el => el.textContent" e5
+playwright-cli -s=agent drop e4 --path=./image.png
+playwright-cli -s=agent drop e4 --data="text/plain=hello world"
+playwright-cli -s=agent hover e4
+playwright-cli -s=agent select e9 "option-value"
+playwright-cli -s=agent upload ./document.pdf
+playwright-cli -s=agent check e12
+playwright-cli -s=agent uncheck e12
+playwright-cli -s=agent snapshot
+playwright-cli -s=agent eval "document.title"
+playwright-cli -s=agent eval "el => el.textContent" e5
 # get element id, class, or any attribute not visible in the snapshot
-playwright-cli eval "el => el.id" e5
-playwright-cli eval "el => el.getAttribute('data-testid')" e5
-playwright-cli dialog-accept
-playwright-cli dialog-accept "confirmation text"
-playwright-cli dialog-dismiss
-playwright-cli resize 1920 1080
-playwright-cli close
+playwright-cli -s=agent eval "el => el.id" e5
+playwright-cli -s=agent eval "el => el.getAttribute('data-testid')" e5
+playwright-cli -s=agent dialog-accept
+playwright-cli -s=agent dialog-accept "confirmation text"
+playwright-cli -s=agent dialog-dismiss
+playwright-cli -s=agent resize 1920 1080
+playwright-cli -s=agent detach
 ```
 
 ### Navigation
@@ -216,19 +322,9 @@ For structured output wrapping every reply as JSON, pass --json
 playwright-cli list --json
 ```
 
-## Open parameters
+## Attach parameters
+
 ```bash
-# Use specific browser when creating session
-playwright-cli open --browser=chrome
-playwright-cli open --browser=firefox
-playwright-cli open --browser=webkit
-playwright-cli open --browser=msedge
-
-# Use persistent profile (by default profile is in-memory)
-playwright-cli open --persistent
-# Use persistent profile with custom directory
-playwright-cli open --profile=/path/to/profile
-
 # Connect to browser via Playwright Extension
 playwright-cli attach --extension=chrome
 
@@ -236,18 +332,13 @@ playwright-cli attach --extension=chrome
 playwright-cli attach --cdp=chrome
 playwright-cli attach --cdp=msedge
 
-# Connect to a running browser via CDP endpoint
+# Connect to a running browser via explicit CDP endpoint
+# (prefer playwright-attach <session> — see Connection model — over this
+# form, so the endpoint resolution/reachability check runs)
 playwright-cli attach --cdp=http://localhost:9222
 
-# Start with config file
-playwright-cli open --config=my-config.json
-
-# Close the browser
-playwright-cli close
 # Detach from an attached browser (leaves the external browser running)
-playwright-cli -s=msedge detach
-# Delete user data for the default session
-playwright-cli delete-data
+playwright-cli -s=agent detach
 ```
 
 ## Snapshots
@@ -283,48 +374,20 @@ playwright-cli snapshot e34
 playwright-cli snapshot --boxes
 ```
 
-## Targeting elements
-
-By default, use refs from the snapshot to interact with page elements.
-
-```bash
-# get snapshot with refs
-playwright-cli snapshot
-
-# interact using a ref
-playwright-cli click e15
-```
-
-You can also use css selectors or Playwright locators.
-
-```bash
-# css selector
-playwright-cli click "#main > button.submit"
-
-# role locator
-playwright-cli click "getByRole('button', { name: 'Submit' })"
-
-# test id
-playwright-cli click "getByTestId('submit-button')"
-```
+See [Targeting strategy](#targeting-strategy) above for the priority order to use when targeting elements — prefer `window.TL` via `eval` over raw snapshot refs, CSS selectors, or Playwright locator strings.
 
 ## Browser Sessions
 
 ```bash
-# create new browser session named "mysession" with persistent profile
-playwright-cli -s=mysession open example.com --persistent
-# same with manually specified profile directory (use when requested explicitly)
-playwright-cli -s=mysession open example.com --profile=/path/to/profile
+playwright-attach mysession
 playwright-cli -s=mysession click e6
-playwright-cli -s=mysession close  # stop a named browser
-playwright-cli -s=mysession delete-data  # delete user data for persistent session
+playwright-cli -s=mysession detach  # leaves the external browser running
 
+# list all local sessions
 playwright-cli list
-# Close all browsers
-playwright-cli close-all
-# Forcefully kill all browser processes
-playwright-cli kill-all
 ```
+
+Do not run `close`, `close-all`, `kill-all`, or `delete-data` — the browser is external and may be in use by others; only `detach`.
 
 ## Installation
 
@@ -343,45 +406,49 @@ npm install -g @playwright/cli@latest
 ## Example: Form submission
 
 ```bash
-playwright-cli open https://example.com/form
-playwright-cli snapshot
+playwright-attach agent
+playwright-cli -s=agent goto https://example.com/form
+playwright-cli -s=agent snapshot
 
-playwright-cli fill e1 "user@example.com"
-playwright-cli fill e2 "password123"
-playwright-cli click e3
-playwright-cli snapshot
-playwright-cli close
+playwright-cli -s=agent fill e1 "user@example.com"
+playwright-cli -s=agent fill e2 "password123"
+playwright-cli -s=agent click e3
+playwright-cli -s=agent snapshot
+playwright-cli -s=agent detach
 ```
 
 ## Example: Multi-tab workflow
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli tab-new https://example.com/other
-playwright-cli tab-list
-playwright-cli tab-select 0
-playwright-cli snapshot
-playwright-cli close
+playwright-attach agent
+playwright-cli -s=agent goto https://example.com
+playwright-cli -s=agent tab-new https://example.com/other
+playwright-cli -s=agent tab-list
+playwright-cli -s=agent tab-select 0
+playwright-cli -s=agent snapshot
+playwright-cli -s=agent detach
 ```
 
 ## Example: Debugging with DevTools
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli click e4
-playwright-cli fill e7 "test"
-playwright-cli console
-playwright-cli network
-playwright-cli close
+playwright-attach agent
+playwright-cli -s=agent goto https://example.com
+playwright-cli -s=agent click e4
+playwright-cli -s=agent fill e7 "test"
+playwright-cli -s=agent console
+playwright-cli -s=agent network
+playwright-cli -s=agent detach
 ```
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli tracing-start
-playwright-cli click e4
-playwright-cli fill e7 "test"
-playwright-cli tracing-stop
-playwright-cli close
+playwright-attach agent
+playwright-cli -s=agent goto https://example.com
+playwright-cli -s=agent tracing-start
+playwright-cli -s=agent click e4
+playwright-cli -s=agent fill e7 "test"
+playwright-cli -s=agent tracing-stop
+playwright-cli -s=agent detach
 ```
 
 ## Example: Interactive session
@@ -389,8 +456,9 @@ playwright-cli close
 Ask the user to annotate the UI. User can provide contextual tasks or ask contextual questions using annotations:
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli show --annotate
+playwright-attach agent
+playwright-cli -s=agent goto https://example.com
+playwright-cli -s=agent show --annotate
 ```
 
 ## Specific tasks
@@ -404,3 +472,11 @@ playwright-cli show --annotate
 * **Tracing** [references/tracing.md](references/tracing.md)
 * **Video recording** [references/video-recording.md](references/video-recording.md)
 * **Inspecting element attributes** [references/element-attributes.md](references/element-attributes.md)
+
+## Operating loop
+
+1. `playwright-cli list --json` — check if your session is already attached.
+2. If not attached: run `playwright-attach <session>`, then run the **Testing Library injection** block above (registers `addInitScript` for the whole context).
+3. **Act** using `window.TL` eval (primary), direct JS eval (secondary), or CSS selectors (tertiary). Do not take a snapshot unless those methods fail or you need structural discovery.
+4. **Verify** with a TL `queryBy*` check, `eval`, console output, or network log. Use a scoped snapshot (`snapshot e34` or `snapshot --depth=4`) only if JS-based verification isn't sufficient.
+5. **Report back concisely**: one sentence on what you did and the outcome, relevant data (URL, key text, error messages, counts), anything unexpected worth flagging, and a suggested next step if useful. Keep it tight — the caller does not want a transcript or a full snapshot dump.

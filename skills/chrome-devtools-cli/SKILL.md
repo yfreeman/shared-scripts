@@ -6,17 +6,25 @@ allowed-tools: Bash(chrome-devtools:*) Bash(chrome-devtools-attach:*)
 
 # Browser Automation with chrome-devtools CLI
 
-The `chrome-devtools` CLI drives a background `chrome-devtools-mcp` daemon (Unix socket on Mac/Linux). The daemon starts automatically on the first command; you do not need to run `start` before each session.
+The `chrome-devtools` CLI drives a background `chrome-devtools-mcp` daemon (Unix socket on Mac/Linux).
+
+**Never launch a new browser. Only attach to one that is already running via CDP.** Do not let the daemon auto-start a fresh browser, and never run bare `chrome-devtools start` (no `--browserUrl`) — that launches a new browser. Always run `chrome-devtools-attach` first; it resolves an existing CDP endpoint and starts the daemon against it. If no reachable endpoint can be found, `chrome-devtools-attach` exits non-zero with a clear error — treat that as a hard stop and surface it to the caller. Do not work around it by starting a fresh browser.
 
 **Never create script files to interact with the browser.** Do not write `.js`, `.ts`, `.sh`, or any other files to automate browser actions. Every browser interaction must be a direct `chrome-devtools` CLI call. Work interactively — run a command, observe the output, run the next command based on what you see.
 
 ## Environment Variables
 
-`PLAYWRIGHT_CDP_ENDPOINT` — if set (in the shell environment or any `.env` file walking up from `$PWD`), `chrome-devtools-attach` connects to that running Chrome instance instead of launching a new browser. This is the same variable used by `playwright-cli`.
+`PLAYWRIGHT_CDP_ENDPOINT` — this is the same variable used by `playwright-cli`. `chrome-devtools-attach` resolves it and connects to that running Chrome instance, verifying reachability before use, in this order:
 
-If `PLAYWRIGHT_CDP_ENDPOINT` is set, run `chrome-devtools-attach` instead of letting the daemon start implicitly — it handles all resolution internally:
+1. Already set in the shell environment.
+2. A `.env` file found by walking up from `$PWD`.
+3. A `.env` in the shared-scripts install root.
+4. Last resort: `http://127.0.0.1:9222`, but only if something actually answers there.
+
+If none of the above yield a reachable endpoint, `chrome-devtools-attach` **exits non-zero with a clear error** instead of launching a new browser. Treat that as a hard stop and surface it to the caller.
+
 ```bash
-chrome-devtools-attach         # resolves env var, starts daemon with --browserUrl
+chrome-devtools-attach         # resolves endpoint, starts daemon attached to it via --browserUrl
 # … interact …
 chrome-devtools stop
 ```
@@ -24,10 +32,7 @@ chrome-devtools stop
 ## Quick Start
 
 ```bash
-# Daemon starts implicitly on first tool call — no explicit start needed
-chrome-devtools list_pages
-
-# Or attach to a running Chrome via PLAYWRIGHT_CDP_ENDPOINT
+# Always attach first — never let the daemon auto-start a fresh browser
 chrome-devtools-attach
 
 # Navigate
@@ -153,13 +158,12 @@ chrome-devtools take_memory_snapshot ./snap.heapsnapshot
 ## Service Management
 
 ```bash
-chrome-devtools start                          # explicit start (usually not needed)
-chrome-devtools-attach                         # attach to PLAYWRIGHT_CDP_ENDPOINT
-chrome-devtools start --browserUrl http://localhost:9222   # attach to specific URL
-chrome-devtools start --headless false         # visible browser
+chrome-devtools-attach                         # resolve endpoint and attach (always use this, never bare `start`)
 chrome-devtools status                         # check if daemon is running
 chrome-devtools stop                           # stop daemon
 ```
+
+Do not run bare `chrome-devtools start` or `chrome-devtools start --headless false` — both launch a new browser. `chrome-devtools start --browserUrl <url>` does attach to a specific URL without launching, but prefer `chrome-devtools-attach` so the endpoint resolution and reachability check run.
 
 ## Installation
 
@@ -175,7 +179,7 @@ chrome-devtools status   # verify install
    which chrome-devtools || npm install -g chrome-devtools-mcp@latest
    chrome-devtools-attach
    ```
-   `chrome-devtools-attach` attaches to the existing Chrome session via `PLAYWRIGHT_CDP_ENDPOINT`. It must run before any other `chrome-devtools` command. If it fails, surface the error and stop.
+   `chrome-devtools-attach` attaches to the existing Chrome session via `PLAYWRIGHT_CDP_ENDPOINT` (falling back to `127.0.0.1:9222` only if it's reachable). It must run before any other `chrome-devtools` command. If it exits non-zero — no reachable endpoint found, or the daemon fails to connect — surface the error and stop. Never work around this by launching a new browser.
 
 1. After attaching, use `chrome-devtools` commands directly — do **not** call `start`/`status`.
 2. Call `take_snapshot` to get element `uid` values.

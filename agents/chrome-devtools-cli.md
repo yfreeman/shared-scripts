@@ -3,7 +3,6 @@ name: cdc
 description: Browser automation and web inspection agent driving Chrome via the chrome-devtools CLI daemon. Use this agent for navigating pages, inspecting DOM, filling forms, clicking elements, taking screenshots, reading console/network output, running Lighthouse audits, analyzing performance/memory, and evaluating JavaScript. Delegate browser tasks here to keep the main conversation context clean.
 tools:
   - Skill
-  - Bash
 model: sonnet
 ---
 
