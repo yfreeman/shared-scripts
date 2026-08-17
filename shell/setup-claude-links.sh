@@ -1,16 +1,17 @@
 #!/bin/bash
-# Setup .claude and .codex symlinks from shared-scripts.
+# Setup .claude and .agents symlinks from shared-scripts.
 #
 # Usage:
 #   setup-claude-links.sh [target-dir]
 #
 # target-dir defaults to the current working directory. Pass "$HOME" to
-# install user-level symlinks (~/.claude, ~/.codex), which Claude Code and
+# install user-level symlinks (~/.claude, ~/.agents), which Claude Code and
 # Codex pick up across all projects — no per-project setup needed.
 #
-# The target must already contain .claude and/or .codex (Claude/Codex create
-# these on first run). Derives the shared-scripts path from this script's
-# own location.
+# The target must already contain .claude and/or .agents (Claude creates
+# .claude on first run; .agents is Codex's skill discovery dir — see
+# https://learn.chatgpt.com/docs/build-skills). Derives the shared-scripts
+# path from this script's own location.
 
 set -e
 
@@ -20,12 +21,12 @@ SHARED_SCRIPTS_PATH=$(dirname "$SCRIPT_DIR")
 TARGET_DIR="${1:-.}"
 TARGET_DIR=$(cd "$TARGET_DIR" && pwd)
 
-if [ ! -d "$TARGET_DIR/.claude" ] && [ ! -d "$TARGET_DIR/.codex" ]; then
-    echo "Error: no .claude or .codex directory found in $TARGET_DIR"
+if [ ! -d "$TARGET_DIR/.claude" ] && [ ! -d "$TARGET_DIR/.agents" ]; then
+    echo "Error: no .claude or .agents directory found in $TARGET_DIR"
     exit 1
 fi
 
-echo "=== Setting up .claude/.codex symlinks ==="
+echo "=== Setting up .claude/.agents symlinks ==="
 echo "  shared-scripts: $SHARED_SCRIPTS_PATH"
 echo "  target:         $TARGET_DIR"
 
@@ -60,10 +61,8 @@ if [ -d "$TARGET_DIR/.claude" ]; then
     link_items ".claude" "skills"
 fi
 
-if [ -d "$TARGET_DIR/.codex" ]; then
-    link_items ".codex" "agents"
-    link_items ".codex" "commands"
-    link_items ".codex" "skills"
+if [ -d "$TARGET_DIR/.agents" ]; then
+    link_items ".agents" "skills"
 fi
 
-echo "✓ .claude/.codex symlinks set up"
+echo "✓ .claude/.agents symlinks set up"

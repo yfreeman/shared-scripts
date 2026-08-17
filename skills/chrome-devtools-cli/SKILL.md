@@ -1,5 +1,5 @@
 ---
-name: chrome-cli
+name: chrome-devtools-cli
 description: Automate browser interactions and inspect pages via the chrome-devtools CLI. Use when you need to navigate, click, fill forms, evaluate JavaScript, take screenshots/snapshots, inspect network/console, run Lighthouse audits, or analyze memory/performance using the chrome-devtools-mcp daemon.
 allowed-tools: Bash(chrome-devtools:*) Bash(chrome-devtools-attach:*)
 ---

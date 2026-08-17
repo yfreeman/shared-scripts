@@ -45,9 +45,9 @@ codex --version 2>/dev/null          | head -n 1 || echo "codex: not in PATH"
 playwright-cli --version 2>/dev/null | head -n 1 || echo "playwright-cli: not in PATH"
 
 echo ""
-echo "=== Wiring user-level .claude/.codex symlinks ==="
+echo "=== Wiring user-level .claude/.agents symlinks ==="
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-mkdir -p "$HOME/.claude"
+mkdir -p "$HOME/.claude" "$HOME/.agents"
 "$SCRIPT_DIR/setup-claude-links.sh" "$HOME"
 
 echo ""
