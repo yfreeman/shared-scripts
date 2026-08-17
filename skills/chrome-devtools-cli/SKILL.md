@@ -64,6 +64,8 @@ chrome-devtools <tool> --help   # see all flags for a command
 
 Required arguments are positional; optional ones are `--flags`.
 
+**Not every MCP tool is available via this CLI.** `wait_for` and `fill_form` are excluded entirely — calling them fails, not just discouraged. For waiting, poll with `evaluate_script` (e.g. re-check a condition, sleep between calls) instead of `wait_for`. For multi-field forms, call `fill` once per field instead of `fill_form`. `--categoryExtensions` tools are also unavailable via the CLI.
+
 ## Output Format
 
 Default output is Markdown. For structured data, use `--output-format=json`.
