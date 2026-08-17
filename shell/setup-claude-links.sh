@@ -1,22 +1,23 @@
 #!/bin/bash
-# Setup .claude, .agents, .codex, and .opencode symlinks from shared-scripts.
+# Setup .claude, .agents, .codex, .opencode, and .pi symlinks from
+# shared-scripts.
 #
 # Usage:
 #   setup-claude-links.sh [target-dir]
 #
 # target-dir defaults to the current working directory. Pass "$HOME" to
-# install user-level symlinks (~/.claude, ~/.agents, ~/.codex, ~/.opencode),
-# which Claude Code, Codex, and opencode pick up across all projects — no
-# per-project setup needed.
+# install user-level symlinks (~/.claude, ~/.agents, ~/.codex, ~/.opencode,
+# ~/.pi), which Claude Code, Codex, opencode, and pi pick up across all
+# projects — no per-project setup needed.
 #
-# The target must already contain .claude, .agents, .codex, and/or .opencode
-# (Claude creates .claude on first run; .agents is Codex's skill discovery
-# dir — see https://learn.chatgpt.com/docs/build-skills; .codex/agents is
-# Codex's subagent discovery dir — see
+# The target must already contain .claude, .agents, .codex, .opencode,
+# and/or .pi (Claude creates .claude on first run; .agents is Codex's skill
+# discovery dir — see https://learn.chatgpt.com/docs/build-skills;
+# .codex/agents is Codex's subagent discovery dir — see
 # https://learn.chatgpt.com/docs/agent-configuration/subagents;
 # .opencode/agents is opencode's agent discovery dir — see
-# https://opencode.ai/docs/agents/). Derives the shared-scripts path from
-# this script's own location.
+# https://opencode.ai/docs/agents/; .pi/skills is pi's skill discovery dir).
+# Derives the shared-scripts path from this script's own location.
 
 set -e
 
@@ -26,12 +27,12 @@ SHARED_SCRIPTS_PATH=$(dirname "$SCRIPT_DIR")
 TARGET_DIR="${1:-.}"
 TARGET_DIR=$(cd "$TARGET_DIR" && pwd)
 
-if [ ! -d "$TARGET_DIR/.claude" ] && [ ! -d "$TARGET_DIR/.agents" ] && [ ! -d "$TARGET_DIR/.codex" ] && [ ! -d "$TARGET_DIR/.opencode" ]; then
-    echo "Error: no .claude, .agents, .codex, or .opencode directory found in $TARGET_DIR"
+if [ ! -d "$TARGET_DIR/.claude" ] && [ ! -d "$TARGET_DIR/.agents" ] && [ ! -d "$TARGET_DIR/.codex" ] && [ ! -d "$TARGET_DIR/.opencode" ] && [ ! -d "$TARGET_DIR/.pi" ]; then
+    echo "Error: no .claude, .agents, .codex, .opencode, or .pi directory found in $TARGET_DIR"
     exit 1
 fi
 
-echo "=== Setting up .claude/.agents/.codex/.opencode symlinks ==="
+echo "=== Setting up .claude/.agents/.codex/.opencode/.pi symlinks ==="
 echo "  shared-scripts: $SHARED_SCRIPTS_PATH"
 echo "  target:         $TARGET_DIR"
 
@@ -93,6 +94,9 @@ if [ -d "$TARGET_DIR/.agents" ]; then
     link_items ".agents" "skills"
 fi
 
+mkdir -p "$TARGET_DIR/.pi"
+link_items ".pi" "skills"
+
 if [ -d "$TARGET_DIR/.codex" ]; then
     # Codex only loads .toml files from its agents dir; .md/.js siblings
     # (Claude's agent format and its support files) would just be clutter.
@@ -145,4 +149,4 @@ link_opencode_agents() {
 mkdir -p "$TARGET_DIR/.opencode"
 link_opencode_agents
 
-echo "✓ .claude/.agents/.codex/.opencode symlinks set up"
+echo "✓ .claude/.agents/.codex/.opencode/.pi symlinks set up"
