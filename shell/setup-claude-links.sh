@@ -16,7 +16,9 @@
 # .codex/agents is Codex's subagent discovery dir — see
 # https://learn.chatgpt.com/docs/agent-configuration/subagents;
 # .opencode/agents is opencode's agent discovery dir — see
-# https://opencode.ai/docs/agents/; .pi/skills is pi's skill discovery dir).
+# https://opencode.ai/docs/agents/; .pi/skills is pi's skill discovery dir;
+# .pi/agent/extensions is pi's global extension discovery dir; .pi/agent/agents
+# is the subagent extension's agent discovery dir).
 # Derives the shared-scripts path from this script's own location.
 
 set -e
@@ -97,6 +99,66 @@ fi
 mkdir -p "$TARGET_DIR/.pi"
 link_items ".pi" "skills"
 
+link_pi_extensions() {
+    # pi loads extensions from agentDir/extensions (global: ~/.pi/agent/extensions)
+    # where each extension is a subdirectory containing index.ts (or package.json
+    # with a "pi" manifest). Discovery follows directory symlinks, so each shared
+    # pi-extensions/<name> directory is linked wholesale.
+    # NOTE: project-local pi extensions live at cwd/.pi/extensions and are
+    # trust-gated; this links the user-level (global) location only.
+    local src_dir="$SHARED_SCRIPTS_PATH/pi-extensions"
+    local dst_dir="$TARGET_DIR/.pi/agent/extensions"
+
+    [ -d "$src_dir" ] || return 0
+
+    mkdir -p "$dst_dir"
+
+    for item in "$src_dir"/*/; do
+        [ -d "$item" ] || continue
+        name=$(basename "$item")
+        dst="$dst_dir/$name"
+
+        if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+            echo "  skipping pi-extensions/$name (exists as regular file/dir)"
+            continue
+        fi
+
+        ln -sfn "$item" "$dst"
+        echo "  linked: .pi/agent/extensions/$name"
+    done
+}
+
+link_pi_extensions
+
+link_pi_agents() {
+    # pi subagent definitions (subagent extension) are Claude-style frontmatter
+    # .md files, but with pi-compatible tools lists — dedicated agents/*.pi.md
+    # variants (like *.opencode.md for opencode), linked in as plain .md (pi
+    # dispatches by frontmatter `name`; the filename is irrelevant).
+    local src_dir="$SHARED_SCRIPTS_PATH/agents"
+    local dst_dir="$TARGET_DIR/.pi/agent/agents"
+
+    [ -d "$src_dir" ] || return 0
+
+    mkdir -p "$dst_dir"
+
+    for item in "$src_dir"/*.pi.md; do
+        [ -e "$item" ] || continue
+        name=$(basename "$item" .pi.md).md
+        dst="$dst_dir/$name"
+
+        if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+            echo "  skipping .pi/agent/agents/$name (exists as regular file)"
+            continue
+        fi
+
+        ln -sfn "$item" "$dst"
+        echo "  linked: .pi/agent/agents/$name"
+    done
+}
+
+link_pi_agents
+
 if [ -d "$TARGET_DIR/.codex" ]; then
     # Codex only loads .toml files from its agents dir; .md/.js siblings
     # (Claude's agent format and its support files) would just be clutter.
@@ -149,4 +211,4 @@ link_opencode_agents() {
 mkdir -p "$TARGET_DIR/.opencode"
 link_opencode_agents
 
-echo "✓ .claude/.agents/.codex/.opencode/.pi symlinks set up"
+echo "✓ .claude/.agents/.codex/.opencode/.pi symlinks set up (skills, extensions, agents)"

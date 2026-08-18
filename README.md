@@ -16,10 +16,14 @@ shared-scripts/
 ├── shell/           # Shell scripts (includes setup-claude-links.sh, age-*.sh)
 ├── age-store/       # Shared age secret recipients: keys/ + groups.conf (see its README)
 ├── agents/          # Claude Code agents (symlinked into .claude/agents/)
+│                    #   *.opencode.md → opencode variants (→ .opencode/agents/)
+│                    #   *.pi.md       → pi subagent variants (→ .pi/agent/agents/)
 ├── commands/        # Claude Code commands (symlinked into .claude/commands/)
-└── skills/          # Claude Code skills (symlinked into .claude/skills/)
-                     #   terminal-session → ../python/term-agent/terminal-session-skill
-                     #   age-secrets      → manage age-store secrets
+├── skills/          # Claude Code skills (symlinked into .claude/skills/)
+│                    #   terminal-session → ../python/term-agent/terminal-session-skill
+│                    #   age-secrets      → manage age-store secrets
+└── pi-extensions/   # pi extensions (symlinked into ~/.pi/agent/extensions/)
+                     #   subagent → delegate tasks to isolated pi subprocesses
 ```
 
 ## Secrets (age-store)
@@ -130,6 +134,15 @@ The chrome-browser agent can query page elements using Testing Library's semanti
 3. The script connects to Chrome via CDP, reads the UMD bundle from disk, injects it, and disconnects
 4. Agent reconnects via MCP — `window.TL` is available with all Testing Library queries
 
+### Pi subagent variants (`agents/*.pi.md`)
+
+`cdc` and `playwright-browser` have `*.pi.md` variants linked into
+`~/.pi/agent/agents/` for the pi subagent extension. They differ from the
+Claude originals because pi semantics differ: `tools: read, bash` (pi has no
+`Skill` tool; skills are loaded by `read`ing SKILL.md and driven via Bash), and
+no `model:` line (subagents inherit the dispatching session's model instead of
+Claude's `sonnet`/`haiku`).
+
 ### Commands (`commands/`)
 
 | File | Description |
@@ -142,6 +155,17 @@ The chrome-browser agent can query page elements using Testing Library's semanti
 |---|---|
 | `worktree` | Git worktree management skill |
 | `terminal-session` | Persistent tmux-backed terminal sessions. Symlink to `../python/term-agent/terminal-session-skill/` (so the skill ships from the term-agent submodule — run `git submodule update --init` if it's empty). |
+
+### Extensions (`pi-extensions/`)
+
+| Directory | Description |
+|---|---|
+| `subagent` | Pi extension: delegates tasks to isolated `pi` subprocesses (keeps heavy work like browser automation out of the main context). Copied from the pi package's `examples/extensions/subagent/`. |
+
+`setup-claude-links.sh` links each `pi-extensions/<name>/` wholesale into
+`~/.pi/agent/extensions/<name>/` (pi follows dir symlinks when discovering
+extensions). Project-local pi extensions are trust-gated and live at
+`.pi/extensions/` instead — the script only installs the user-level location.
 
 `setup-claude-links.sh` passes `ln -sfn` so re-running it on top of
 existing dir-symlinks replaces the link in place instead of dereferencing
