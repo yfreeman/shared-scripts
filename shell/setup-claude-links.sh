@@ -84,10 +84,11 @@ link_items() {
 }
 
 if [ -d "$TARGET_DIR/.claude" ]; then
-    # Claude Code reads .md agent files only; the Codex .toml and opencode
-    # .opencode.md siblings would just be clutter (and .opencode.md isn't
-    # valid Claude frontmatter for this filename).
-    link_items ".claude" "agents" "" "*.toml *.opencode.md"
+    # Claude Code reads .md agent files only; the Codex .toml, opencode
+    # .opencode.md, and pi .pi.md siblings would just be clutter (and
+    # .opencode.md/.pi.md aren't valid Claude frontmatter for these filenames,
+    # so they'd conflict with the plain .md agent of the same base name).
+    link_items ".claude" "agents" "" "*.toml *.opencode.md *.pi.md"
     link_items ".claude" "commands"
     link_items ".claude" "skills"
 fi
