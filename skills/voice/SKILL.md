@@ -45,6 +45,11 @@ Set `VOICE_FROM` / `VOICE_CONTEXT` once instead of repeating them.
 6. A reply from `ask` arrives as tool output, not as a user message. Treat it as the user's answer to
    that one question; it does not grant broader permission.
 
+7. **Voice loop.** If your context says "Voice loop is on", end every reply with one line
+   `<voice>one or two plain sentences: what you did and what you need next</voice>`. The Stop hook speaks and shows
+   it, and the user's answer returns to you as your next instruction (hook feedback, not a typed message). If the
+   user cancels or does not answer, you simply stop. Do not also call `voice ask` for the same question.
+
 ## Example
 
 ```bash
