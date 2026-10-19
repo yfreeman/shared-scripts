@@ -157,6 +157,7 @@ Claude's `sonnet`/`haiku`).
 |---|---|
 | `worktree` | Git worktree management skill |
 | `voice` | Speak to the user / ask by voice via the `voice` CLI; rules for agents (`voice help agent` is the live copy). Needs the bridge: `shell/lllm-voice` README (Getting started). |
+| `sgrep` | Ranked passage search over notes and code (BM25 plus optional semantic list) via the `sgrep` CLI: when to use it, how to read its two result lists, `-t` for code, the index. Setup and builds: `sgrep/README.md`. |
 | `terminal-session` | Persistent tmux-backed terminal sessions. Symlink to `../python/term-agent/terminal-session-skill/` (so the skill ships from the term-agent submodule — run `git submodule update --init` if it's empty). |
 
 ### Extensions (`pi-extensions/`)
@@ -182,4 +183,6 @@ inside the source skill dir).
 | `term-agent` | Python | Stateless terminal agent for Claude Code using tmux |
 | `ta` | alias | Shorthand for `term-agent` |
 | `voice` | Shell | Speak text / collect a spoken-or-typed reply on the Mac (`say`, `ask`, `notify`, `listen`, `focus`), from the Mac or the container (via a tunnel). Self-documenting: `voice help [agent\|setup\|config\|hooks\|panel\|troubleshooting]`, `voice doctor`. Client from the `shell/lllm-voice` submodule; see its README (Getting started). Host-side setup: `shell/lllm-voice/install.sh` (add `--tunnel --env-file .env` for the container). |
+| `sgrep` | Shell | Passage-level BM25 + semantic search (rg-compatible flags, JSONL output). Picks the build for this OS/arch from `sgrep/<os>-<arch>/` (gitignored, not committed) and builds it on first use. Docs: `sgrep/README.md`. |
+| `sgrep-build` | Shell | Builds sgrep for this machine (host or container): installs Rust and packages as needed, builds on local disk, installs into `sgrep/<os>-<arch>/`. Run for you by `sgrep`. |
 | `voice-hook` | Shell | Claude Code Notification/Stop hook adapter for `voice` (never blocks the agent). Per-project control with `VOICE=off` in that project's `.env`. Wire it into `~/.claude/settings.json` on each machine; see `voice help hooks`. |

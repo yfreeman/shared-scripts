@@ -1,10 +1,20 @@
 #!/usr/bin/env sh
-# Runs the sgrep build for this platform. sgrep execs sgrep-sem from its own directory, so exec the real path.
-d="$(cd "$(dirname "$0")/.." && pwd)/sgrep"
+# Runs the sgrep build for this platform (building it first if it is missing). sgrep execs sgrep-sem from its own
+# directory, so exec the real path. Defaults: the shared model, and --index-if-missing for --semantic queries.
+# Env: SGREP_NO_AUTOBUILD=1 never builds; SGREP_MODEL_DIR; SGREP_INDEX_IF_MISSING=0 turns auto-indexing off.
+here="$(cd "$(dirname "$0")/.." && pwd)"
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 case "$(uname -m)" in aarch64|arm64) arch=arm64 ;; x86_64|amd64) arch=x86_64 ;; *) arch=$(uname -m) ;; esac
-bin="$d/$os-$arch/sgrep"
-[ -x "$bin" ] || { echo "sgrep: no build for $os-$arch in $d (build it, see sgrep/README.md)" >&2; exit 127; }
-: "${SGREP_MODEL_DIR:=$(dirname "$d")/models/granite-97m}"
-export SGREP_MODEL_DIR
-exec "$bin" "$@"
+dir="$here/sgrep/$os-$arch"
+if [ ! -x "$dir/sgrep" ] || [ ! -x "$dir/sgrep-sem" ]; then
+  if [ -n "${SGREP_NO_AUTOBUILD:-}" ]; then
+    echo "sgrep: no build for $os-$arch. Run sgrep-build (see $here/sgrep/README.md)" >&2
+    exit 127
+  fi
+  echo "sgrep: no build for $os-$arch yet; building it now (once, a few minutes)" >&2
+  "$here/bin/sgrep-build" || { echo "sgrep: the build failed; see $here/sgrep/README.md" >&2; exit 127; }
+fi
+: "${SGREP_MODEL_DIR:=$here/models/granite-97m}"
+: "${SGREP_INDEX_IF_MISSING:=1}"
+export SGREP_MODEL_DIR SGREP_INDEX_IF_MISSING
+exec "$dir/sgrep" "$@"

@@ -6,25 +6,32 @@ shared folder, so the host and the containers use the same copies. If `bin/sgrep
 platform, or the model is missing, rebuild as below.
 
 Source: https://github.com/yfreeman/sgrep (`sgrep` and `sgrep-sem` must stay together in one directory).
+Defaults set by `bin/sgrep`: `SGREP_MODEL_DIR` is the model below and `SGREP_INDEX_IF_MISSING=1` (the first
+`--semantic` query in a directory builds its `.sgrep/` index; `SGREP_INDEX_IF_MISSING=0` turns that off).
+`sgrep --doctor` checks the whole setup. Agent usage is in `skills/sgrep/SKILL.md`.
 
-## Rebuild the binaries
+## Build (automatic)
 
-Do this on the platform you need (on the Mac for `darwin-arm64`, inside the container for `linux-arm64`).
-Build on local disk, not on this shared mount (virtiofs is slow for compiling), then copy the result here.
+`bin/sgrep` runs `bin/sgrep-build` itself when there is no build for the platform (set `SGREP_NO_AUTOBUILD=1` to
+forbid that). `sgrep-build` works the same on the Mac and in the container: it installs what is missing (Rust 1.87
+via rustup; on Ubuntu `build-essential`, `pkg-config`, `libssl-dev` via apt, as root or passwordless sudo), gets the
+source, builds on local disk in `~/.cache/sgrep-build` (compiling on the shared mount is slow), then installs
+`sgrep` and `sgrep-sem` together into `sgrep/<os>-<arch>/` with a `BUILD` file naming the commit. The network must
+be reachable (rustup, crates, and ONNX Runtime, which `ort` downloads at build time). Only one build per platform
+runs at a time; a second caller waits for it.
 
-1. Rust 1.87 or newer: `curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.87.0`
-2. Ubuntu only: `apt-get install -y gcc g++ pkg-config libssl-dev` (OpenSSL is needed to download ONNX Runtime at
-   build time, so the network must be reachable).
-3. Get the source: `git clone git@github.com:yfreeman/sgrep.git ~/sgrep-build` (or copy a checkout there).
-4. Build: `cd ~/sgrep-build && cargo build --release --locked -p sgrep -p sgrep-sem` (about 35 s on 4 cores for a
-   warm dependency cache; a cold build takes a few minutes).
-5. Install:
+Source, in order: `SGREP_SRC` (a checkout, no network needed), else a clone kept in `~/.cache/sgrep-build/src` from
+`SGREP_REPO` (default `git@github.com:yfreeman/sgrep.git`, a private repo). In the container the default ssh key is
+missing for root; `sgrep-build` falls back to `/home/vscode/.ssh/id_ed25519`. Only pushed commits can be cloned, so
+to build unpushed work give it a checkout:
 
-       D=<shared-scripts>/sgrep/$(uname -s | tr A-Z a-z)-$(uname -m | sed s/aarch64/arm64/)
-       mkdir -p "$D" && cp target/release/sgrep target/release/sgrep-sem "$D"/
+    # from the Mac, into the container (tar prints harmless xattr warnings)
+    cd ~/Projects/ripbm25 && tar --exclude=./target --exclude=./.git -cf - . \
+      | container exec -i globe-dev sh -c 'rm -rf /root/sgrep-src && mkdir -p /root/sgrep-src && tar -xf - -C /root/sgrep-src'
+    container exec globe-dev env SGREP_SRC=/root/sgrep-src /usr/local/shared-scripts/bin/sgrep-build
 
-Inside the `globe-dev` container, `<shared-scripts>` is `/usr/local/shared-scripts`. From the Mac you can run the
-steps in the container with `container exec globe-dev bash -c '...'`.
+To rebuild after the source changed, run `sgrep-build` again (it pulls the clone, or uses your `SGREP_SRC`).
+Nothing is built unless asked, so a stale build keeps working until you rebuild.
 
 ## Model
 

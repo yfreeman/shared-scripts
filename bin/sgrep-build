@@ -1,0 +1,83 @@
+#!/usr/bin/env sh
+# Builds sgrep for THIS machine (macOS host or Linux container) into <shared-scripts>/sgrep/<os>-<arch>/.
+# Installs what is missing (Rust, and on Ubuntu pkg-config + libssl-dev), builds on local disk, then installs.
+# Usually run for you by bin/sgrep when there is no build for the platform. Env: SGREP_SRC (source checkout),
+# SGREP_REPO (git url), SGREP_BUILD_DIR (local build cache, default ~/.cache/sgrep-build).
+set -eu
+
+here="$(cd "$(dirname "$0")/.." && pwd)"
+os=$(uname -s | tr '[:upper:]' '[:lower:]')
+case "$(uname -m)" in aarch64|arm64) arch=arm64 ;; x86_64|amd64) arch=x86_64 ;; *) arch=$(uname -m) ;; esac
+plat="$os-$arch"
+dest="$here/sgrep/$plat"
+cache="${SGREP_BUILD_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/sgrep-build}"
+repo="${SGREP_REPO:-git@github.com:yfreeman/sgrep.git}"
+say() { echo "sgrep-build: $*" >&2; }
+die() { say "$*"; exit 1; }
+
+# One build at a time per platform (host and container may both start one on the shared folder).
+mkdir -p "$here/sgrep"
+lock="$here/sgrep/.build-$plat.lock"
+waited=0
+until mkdir "$lock" 2>/dev/null; do
+  [ "$waited" -ge 900 ] && die "another build holds $lock for over 15 minutes; remove it if it is stale"
+  [ "$waited" -eq 0 ] && say "another build of $plat is running; waiting for it"
+  sleep 5; waited=$((waited + 5))
+done
+trap 'rmdir "$lock" 2>/dev/null || true' EXIT INT TERM
+if [ "$waited" -gt 0 ] && [ -x "$dest/sgrep" ] && [ -x "$dest/sgrep-sem" ]; then say "built by the other process"; exit 0; fi
+
+# Privileged commands: as root directly, else sudo without a prompt.
+as_root() { if [ "$(id -u)" -eq 0 ]; then "$@"; elif command -v sudo >/dev/null 2>&1; then sudo -n "$@"; else return 1; fi; }
+
+# 1. Toolchain and system packages.
+[ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+if ! command -v cargo >/dev/null 2>&1; then
+  say "installing Rust 1.87 (rustup)"
+  command -v curl >/dev/null 2>&1 || die "curl is needed to install Rust"
+  curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.87.0 >&2
+  . "$HOME/.cargo/env"
+fi
+if [ "$os" = linux ]; then
+  if ! command -v cc >/dev/null 2>&1 || ! command -v pkg-config >/dev/null 2>&1 || ! pkg-config --exists openssl 2>/dev/null; then
+    say "installing build-essential, pkg-config and libssl-dev (apt)"
+    as_root apt-get update -qq >&2 || true
+    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential pkg-config libssl-dev git curl >&2 \
+      || die "need build-essential, pkg-config and libssl-dev; install them (as root) and run sgrep-build again"
+  fi
+else
+  command -v cc >/dev/null 2>&1 || die "no C compiler: run 'xcode-select --install' and try again"
+fi
+
+# 2. Source: SGREP_SRC, else a clone kept in the build cache (private repo: the ssh key the container mounts for
+#    the vscode user is tried when the default one fails).
+src="${SGREP_SRC:-}"
+if [ -z "$src" ]; then
+  src="$cache/src"
+  ssh_alt=""
+  for k in "$HOME/.ssh/id_ed25519" /home/vscode/.ssh/id_ed25519; do
+    [ -r "$k" ] && { ssh_alt="ssh -i $k -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new"; break; }
+  done
+  fetch() {
+    if [ -d "$src/.git" ]; then git -C "$src" pull -q --ff-only; else mkdir -p "$cache" && git clone -q --depth 50 "$repo" "$src"; fi
+  }
+  if ! fetch 2>/dev/null; then
+    [ -n "$ssh_alt" ] && GIT_SSH_COMMAND="$ssh_alt" fetch \
+      || die "cannot fetch $repo. Set SGREP_SRC to a checkout, or SGREP_REPO to a reachable url"
+  fi
+fi
+[ -f "$src/Cargo.toml" ] || die "$src is not an sgrep checkout"
+rev=$(git -C "$src" rev-parse --short HEAD 2>/dev/null || echo unknown)
+
+# 3. Build on local disk (compiling on the shared mount is slow).
+say "building $plat from $src ($rev); a few minutes the first time"
+CARGO_TARGET_DIR="$cache/target" cargo build --release --locked --manifest-path "$src/Cargo.toml" -p sgrep -p sgrep-sem >&2 \
+  || die "build failed (the output above says why)"
+
+# 4. Install both binaries together, each replaced atomically.
+mkdir -p "$dest"
+for b in sgrep-sem sgrep; do
+  cp "$cache/target/release/$b" "$dest/.$b.new" && mv -f "$dest/.$b.new" "$dest/$b"
+done
+echo "$rev $(date -u +%Y-%m-%dT%H:%MZ)" > "$dest/BUILD"
+say "installed $plat ($rev) in $dest"
