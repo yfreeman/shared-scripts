@@ -1,0 +1,9 @@
+# Sourced from .rc. Inside the Linux container, point `voice` at the Mac through the reverse tunnel
+# (install.sh --tunnel in shell/lllm-voice). VOICE_TOKEN comes from the gitignored .env.
+if [ "$(uname -s)" = Linux ]; then
+  export VOICE_ENDPOINT=127.0.0.1:18765
+  if [ -z "${VOICE_TOKEN:-}" ] && [ -r "$SHARED_SCRIPTS_DIR/.env" ]; then
+    VOICE_TOKEN=$(sed -n 's/^VOICE_TOKEN=//p' "$SHARED_SCRIPTS_DIR/.env" | tail -1)
+    [ -n "$VOICE_TOKEN" ] && export VOICE_TOKEN
+  fi
+fi
