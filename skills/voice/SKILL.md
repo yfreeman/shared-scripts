@@ -50,6 +50,26 @@ Set `VOICE_FROM` / `VOICE_CONTEXT` once instead of repeating them.
    it, and the user's answer returns to you as your next instruction (hook feedback, not a typed message). If the
    user cancels or does not answer, you simply stop. Do not also call `voice ask` for the same question.
 
+## Settings (environment variables / the project's `.env`)
+
+Precedence: option > environment > nearest `.env` > default. `voice config` prints what is in force here;
+`voice help config` is the full reference. In a project `.env` only the keys marked ✔ are read (never sourced).
+
+| Variable | ✔ | Meaning |
+|---|---|---|
+| `VOICE` | ✔ | `off` silences everything for the directory (`say`/`notify` no-op, `ask` exits 4) |
+| `VOICE_LOOP` | ✔ | `1` = reply loop: end replies with `<voice>…</voice>`, the user's answer comes back as your next instruction |
+| `VOICE_LOOP_TIMEOUT`, `VOICE_LOOP_MAX` | ✔ | seconds to wait for a reply (300); replies per prompt (25) |
+| `VOICE_RATE`, `VOICE_VOICE` | ✔ | speech rate in wpm (e.g. 300) and macOS voice name (e.g. `Luca`); `say -v '?'` lists voices |
+| `VOICE_FROM`, `VOICE_CONTEXT` | ✔ | who/what the panel says is asking (defaults: Claude, the directory name) |
+| `VOICE_HOOK_NOTIFICATION`, `VOICE_HOOK_STOP` | ✔ | `say` \| `notify` \| `off` for those hooks (defaults say, notify) |
+| `VOICE_ENDPOINT`, `VOICE_TOKEN`, `VOICE_TOKEN_FILE` | | where the bridge is and the shared secret; set in the environment only, set up for you in the container |
+| `VOICE_DIR`, `VOICE_HOST`, `VOICE_SESSION` | | directory to read `.env` from; host and session labels |
+| `VOICE_PANEL_STYLE` | | panel window class (`window` default, `dialog`, `floating`, `regular`); Mac-side, or `~/.config/voice/panel-style` |
+
+Per call: `--rate`, `--voice`, `--from`, `--context`, `--session`, `--timeout`. Machine-wide Mac defaults for rate and voice:
+`~/.config/voice/rate` and `~/.config/voice/voice`. Change a project's voice by editing its `.env` (e.g. `VOICE_VOICE=Luca`).
+
 ## Example
 
 ```bash
