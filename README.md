@@ -23,6 +23,7 @@ shared-scripts/
 ├── skills/          # Claude Code skills (symlinked into .claude/skills/)
 │                    #   terminal-session → ../python/term-agent/terminal-session-skill
 │                    #   age-secrets      → manage age-store secrets
+│                    #   voice            → speak/ask the user via the voice bridge
 └── pi-extensions/   # pi extensions (symlinked into ~/.pi/agent/extensions/)
                      #   subagent → delegate tasks to isolated pi subprocesses
 ```
@@ -155,6 +156,7 @@ Claude's `sonnet`/`haiku`).
 | File | Description |
 |---|---|
 | `worktree` | Git worktree management skill |
+| `voice` | Speak to the user / ask by voice via the `voice` CLI; rules for agents (`voice help agent` is the live copy). Needs the bridge: `shell/lllm-voice` README (Getting started). |
 | `terminal-session` | Persistent tmux-backed terminal sessions. Symlink to `../python/term-agent/terminal-session-skill/` (so the skill ships from the term-agent submodule — run `git submodule update --init` if it's empty). |
 
 ### Extensions (`pi-extensions/`)
@@ -179,4 +181,5 @@ inside the source skill dir).
 |---|---|---|
 | `term-agent` | Python | Stateless terminal agent for Claude Code using tmux |
 | `ta` | alias | Shorthand for `term-agent` |
-| `voice` | Shell | Speak text / collect a spoken-or-typed reply on the Mac (`say`, `ask`, `notify`, `listen`, `focus`). Client from the `shell/lllm-voice` submodule; see its README. Host-side setup: `shell/lllm-voice/install.sh`. |
+| `voice` | Shell | Speak text / collect a spoken-or-typed reply on the Mac (`say`, `ask`, `notify`, `listen`, `focus`), from the Mac or the container (via a tunnel). Self-documenting: `voice help [agent\|setup\|config\|hooks\|panel\|troubleshooting]`, `voice doctor`. Client from the `shell/lllm-voice` submodule; see its README (Getting started). Host-side setup: `shell/lllm-voice/install.sh` (add `--tunnel --env-file .env` for the container). |
+| `voice-hook` | Shell | Claude Code Notification/Stop hook adapter for `voice` (never blocks the agent). Per-project control with `VOICE=off` in that project's `.env`. Wire it into `~/.claude/settings.json` on each machine; see `voice help hooks`. |

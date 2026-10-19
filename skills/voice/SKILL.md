@@ -6,6 +6,9 @@ allowed-tools: Bash
 
 # voice — speak to the user, collect a spoken/typed reply
 
+> The CLI documents itself. `voice help agent` is the authoritative, current version of these rules;
+> `voice doctor` checks the setup; `voice config` shows the settings in force for this directory.
+
 `voice` is on PATH (shared-scripts `bin/voice`). It talks to a bridge on the user's Mac: `say`/`notify`
 produce speech and/or a notification banner; `ask` also opens a floating panel and **prints the reply on
 stdout**. In the container the endpoint is configured automatically (`VOICE_ENDPOINT`, `VOICE_TOKEN`).
@@ -60,4 +63,5 @@ fi
   `shell/lllm-voice/install.sh --tunnel --env-file <shared-scripts>/.env`.
 - "cannot read token file" in the container: the shell didn't source `.rc` (non-interactive ssh).
   Use `bash -ic '...'` or export `VOICE_ENDPOINT` and `VOICE_TOKEN` yourself.
-- Details: `shell/lllm-voice/README.md`.
+- `voice doctor` pinpoints what is broken (bridge, token, tunnel, skill link, hooks); `voice help troubleshooting`
+  lists symptoms and fixes. Details: `shell/lllm-voice/README.md`.
