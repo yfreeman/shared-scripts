@@ -31,7 +31,7 @@ fi
 # Detect the user: check devcontainer.json remoteUser first, then fall back to probing
 DEVCONTAINER_JSON=".devcontainer/devcontainer.json"
 if [ -f "$DEVCONTAINER_JSON" ] && command -v jq &>/dev/null; then
-    REMOTE_USER=$(jq -r '.remoteUser // empty' "$DEVCONTAINER_JSON")
+    REMOTE_USER=$(grep -v '^\s*//' "$DEVCONTAINER_JSON" | jq -r '.remoteUser // empty')
 fi
 
 if [ -n "$REMOTE_USER" ]; then

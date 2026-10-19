@@ -7,5 +7,5 @@
   --user-data-dir="$(dirname "$0")/../.browser_profile" \
   --window-size=1080,1080 \
   --no-first-run \
-  --no-default-browser-check \ 
+  --no-default-browser-check \
   --remote-allow-origins=*

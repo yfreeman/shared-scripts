@@ -3,6 +3,7 @@ export PATH="$SHARED_SCRIPTS_DIR/bin:$HOME/.local/bin:$PATH"
 
 alias ta='term-agent'
 alias edc='enter-container'
+alias eac='enter-apple-container'
 alias chrome='start-chrome'
 
 [ -r "$SHARED_SCRIPTS_DIR/shell/voice.rc" ] && . "$SHARED_SCRIPTS_DIR/shell/voice.rc"
