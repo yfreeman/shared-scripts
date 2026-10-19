@@ -3,3 +3,5 @@
 .env.local
 .playwright-cli/
 .claude/
+models/
+sgrep/*/
