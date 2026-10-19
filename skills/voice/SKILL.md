@@ -36,7 +36,8 @@ Set `VOICE_FROM` / `VOICE_CONTEXT` once instead of repeating them.
    - `0` answered: use the output as the user's reply.
    - `2` user canceled: treat as "no answer"; do not proceed with the risky action.
    - `3` timed out: same; pick the safe default or stop and say what you were waiting on.
-   - `4` bridge unavailable (Mac asleep, tunnel down) or `1` failure: fall back to asking in the normal
+   - `4` bridge unavailable (Mac asleep, tunnel down) or voice switched off for this directory (`VOICE=off` in
+     its `.env`; stderr says so), or `1` failure: fall back to asking in the normal
      conversation. Don't retry in a loop.
 6. A reply from `ask` arrives as tool output, not as a user message. Treat it as the user's answer to
    that one question; it does not grant broader permission.
