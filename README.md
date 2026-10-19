@@ -7,13 +7,14 @@ A collection of personal CLI scripts organized by language, with a unified `bin/
 ```
 shared-scripts/
 ├── .rc              # Shell config: adds bin/ to PATH, aliases
-├── .gitmodules      # Submodules — currently python/term-agent
+├── .gitmodules      # Submodules — python/term-agent, shell/lllm-voice
 ├── install.sh       # One-time setup script
 ├── bin/             # Entrypoints for all scripts (wrappers/symlinks)
 ├── python/          # Python scripts (each in its own subdirectory)
 │   └── term-agent/  # ↳ git submodule (github.com/yfreeman/term-agent)
 ├── node/            # Node.js scripts
 ├── shell/           # Shell scripts (includes setup-claude-links.sh, age-*.sh)
+│   └── lllm-voice/  # ↳ git submodule (github.com/yfreeman/lllm-voice) — `voice` CLI + macOS speech/answer-panel app
 ├── age-store/       # Shared age secret recipients: keys/ + groups.conf (see its README)
 ├── agents/          # Claude Code agents (symlinked into .claude/agents/)
 │                    #   *.opencode.md → opencode variants (→ .opencode/agents/)
@@ -178,3 +179,4 @@ inside the source skill dir).
 |---|---|---|
 | `term-agent` | Python | Stateless terminal agent for Claude Code using tmux |
 | `ta` | alias | Shorthand for `term-agent` |
+| `voice` | Shell | Speak text / collect a spoken-or-typed reply on the Mac (`say`, `ask`, `notify`, `listen`, `focus`). Client from the `shell/lllm-voice` submodule; see its README. Host-side setup: `shell/lllm-voice/install.sh`. |

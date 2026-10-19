@@ -1,3 +1,6 @@
 [submodule "python/term-agent"]
 	path = python/term-agent
 	url = git@github.com:yfreeman/term-agent.git
+[submodule "shell/lllm-voice"]
+	path = shell/lllm-voice
+	url = git@github.com:yfreeman/lllm-voice.git
