@@ -8,7 +8,10 @@ platform, or the model is missing, rebuild as below.
 Source: https://github.com/yfreeman/sgrep (`sgrep` and `sgrep-sem` must stay together in one directory).
 Defaults set by `bin/sgrep`: `SGREP_MODEL_DIR` is the model below and `SGREP_INDEX_IF_MISSING=1` (the first
 `--semantic` query in a directory builds its `.sgrep/` index; `SGREP_INDEX_IF_MISSING=0` turns that off).
-`sgrep --doctor` checks the whole setup. Agent usage is in `skills/sgrep/SKILL.md`.
+In the container `SGREP_INDEX_HOME` defaults to `/workspaces` (when it exists): every index lives in
+`/workspaces/.sgrep/<path>/`, not inside the repositories or git worktrees, and one embedding cache is shared by them
+(a new worktree of a repo indexes in seconds). On the host, set `SGREP_INDEX_HOME` yourself to get the same, or leave it
+unset for `.sgrep/` inside each indexed folder. `sgrep --doctor` checks the whole setup. Agent usage is in `skills/sgrep/SKILL.md`.
 
 ## Build (automatic)
 

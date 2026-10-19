@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 # Runs the sgrep build for this platform (building it first if it is missing). sgrep execs sgrep-sem from its own
 # directory, so exec the real path. Defaults: the shared model, and --index-if-missing for --semantic queries.
-# Env: SGREP_NO_AUTOBUILD=1 never builds; SGREP_MODEL_DIR; SGREP_INDEX_IF_MISSING=0 turns auto-indexing off.
+# Env: SGREP_NO_AUTOBUILD=1 never builds; SGREP_MODEL_DIR; SGREP_INDEX_IF_MISSING=0 turns auto-indexing off;
+# SGREP_INDEX_HOME (default /workspaces when it exists) keeps indexes under one directory.
 here="$(cd "$(dirname "$0")/.." && pwd)"
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 case "$(uname -m)" in aarch64|arm64) arch=arm64 ;; x86_64|amd64) arch=x86_64 ;; *) arch=$(uname -m) ;; esac
@@ -16,5 +17,9 @@ if [ ! -x "$dir/sgrep" ] || [ ! -x "$dir/sgrep-sem" ]; then
 fi
 : "${SGREP_MODEL_DIR:=$here/models/granite-97m}"
 : "${SGREP_INDEX_IF_MISSING:=1}"
+# In the container the work lives under /workspaces: keep every index (and one embedding cache) there, not inside
+# each repository or worktree. Unset on the host unless you set it.
+[ -z "${SGREP_INDEX_HOME:-}" ] && [ -d /workspaces ] && SGREP_INDEX_HOME=/workspaces
 export SGREP_MODEL_DIR SGREP_INDEX_IF_MISSING
+[ -n "${SGREP_INDEX_HOME:-}" ] && export SGREP_INDEX_HOME
 exec "$dir/sgrep" "$@"
