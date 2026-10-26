@@ -1,7 +1,22 @@
 # Sourced from .rc. Inside the Linux container, point `voice` at the Mac through the reverse tunnel
 # (install.sh --tunnel in shell/lllm-voice). VOICE_TOKEN comes from the gitignored .env.
 if [ "$(uname -s)" = Linux ]; then
-  export VOICE_ENDPOINT=127.0.0.1:18765
+  # Where the Mac's voice bridge is, unless the environment already says:
+  #   1. a reverse tunnel listening on 127.0.0.1:18765 (globe-dev's launchd tunnel,
+  #      remote hosts such as the agents box, which can't reach the Mac directly), else
+  #   2. the host at the container's default gateway (Apple `container`), port 8765,
+  #      where the bridge listens on all interfaces — no tunnel needed.
+  if [ -z "${VOICE_ENDPOINT:-}" ]; then
+    if (exec 3<>/dev/tcp/127.0.0.1/18765) 2>/dev/null; then
+      VOICE_ENDPOINT=127.0.0.1:18765
+    elif _vhost=$("$SHARED_SCRIPTS_DIR/shell/get-host-ip.sh" 2>/dev/null); then
+      VOICE_ENDPOINT="$_vhost:8765"
+    else
+      VOICE_ENDPOINT=127.0.0.1:18765
+    fi
+    unset _vhost
+  fi
+  export VOICE_ENDPOINT
   if [ -z "${VOICE_TOKEN:-}" ] && [ -r "$SHARED_SCRIPTS_DIR/.env" ]; then
     VOICE_TOKEN=$(sed -n 's/^VOICE_TOKEN=//p' "$SHARED_SCRIPTS_DIR/.env" | tail -1)
     [ -n "$VOICE_TOKEN" ] && export VOICE_TOKEN
