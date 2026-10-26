@@ -4,14 +4,15 @@
 # devcontainer.local_folder-style label to filter on, so this matches by
 # mount instead: find the container whose /workspaces mount source is the
 # cwd, or an ancestor of it (so it also works from a subdirectory of the
-# workspace).
+# workspace). Also matches wp-dev-style containers that mount the repo at
+# /home/agent/projects/<repo> (user `agent`).
 
 CONTAINER_NAME=""
 PWD_REAL="$(pwd -P)"
 
 while IFS= read -r name; do
     [ -z "$name" ] && continue
-    source=$(container inspect "$name" 2>/dev/null | jq -r '.[0].configuration.mounts[]? | select(.destination == "/workspaces") | .source')
+    source=$(container inspect "$name" 2>/dev/null | jq -r '.[0].configuration.mounts[]? | select(.destination == "/workspaces" or (.destination | test("^/home/agent/projects/[^/]+$") and (endswith("-worktrees") | not))) | .source')
     [ -z "$source" ] && continue
     case "$PWD_REAL" in
         "$source"|"$source"/*)
@@ -48,6 +49,8 @@ fi
 
 if [ -n "$REMOTE_USER" ]; then
     USER="$REMOTE_USER"
+elif container exec "$CONTAINER_NAME" id -u agent &>/dev/null; then
+    USER="agent"
 elif container exec "$CONTAINER_NAME" id -u vscode &>/dev/null; then
     USER="vscode"
 elif container exec "$CONTAINER_NAME" id -u node &>/dev/null; then
