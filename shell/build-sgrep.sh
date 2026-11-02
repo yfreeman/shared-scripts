@@ -16,7 +16,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 src="$here/rust/sgrep"
 build_dir="${SGREP_BUILD_DIR:-$HOME/build/sgrep}"
 
-command -v cargo >/dev/null 2>&1 || cargo="$HOME/.cargo/bin/cargo"
+if command -v cargo >/dev/null 2>&1; then cargo=cargo; else cargo="$HOME/.cargo/bin/cargo"; fi
+[ -x "$(command -v "$cargo" || echo /nonexistent)" ] || { echo "cargo not found (\$cargo or $HOME/.cargo/bin/cargo)" >&2; exit 1; }
 
 [ -d "$src/crates" ] || { echo "rust/sgrep submodule not populated: git submodule update --init rust/sgrep" >&2; exit 1; }
 

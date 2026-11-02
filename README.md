@@ -15,6 +15,8 @@ shared-scripts/
 ├── rust/            # Rust projects
 │   └── sgrep/       # ↳ git submodule (github-personal/yfreeman/sgrep):
 │                    #   passage-level BM25 search, ripgrep-style CLI
+├── models/          # gitignored: sgrep semantic embedding model
+│                    #   (granite-97m-r2/; fetched by shell/get-sgrep-model.sh)
 ├── node/            # Node.js scripts
 ├── shell/           # Shell scripts (includes setup-claude-links.sh, age-*.sh)
 ├── age-store/       # Shared age secret recipients: keys/ + groups.conf (see its README)
@@ -49,6 +51,14 @@ source ~/.zshrc  # or ~/.bashrc
 - `git submodule update --init --recursive` so submodules
   (`python/term-agent`, `rust/sgrep`) are populated — needed so
   `skills/terminal-session` resolves
+- Builds the `sgrep` binaries into `bin/` via `shell/build-sgrep.sh` when a
+  Rust toolchain is present (skipped otherwise — the binaries are
+  per-platform and gitignored)
+- Fetches the sgrep semantic embedding model into `models/` via
+  `shell/get-sgrep-model.sh` (~396 MB; skip with `SGREP_SKIP_MODEL=1`)
+- Exports `SGREP_MODEL_DIR` from `.rc`, so semantic search works in every
+  container that bind-mounts this checkout (each still builds its own
+  per-directory `.sgrep/` index on first `--semantic` query)
 - Add `source .../shared-scripts/.rc` to your shell rc file
   (`~/.zshrc`, `~/.bashrc`, or `~/.profile` depending on `$SHELL`)
 
@@ -116,6 +126,16 @@ Python scripts are run with [uv](https://github.com/astral-sh/uv), which automat
    chmod +x shell/my-script.sh
    ```
 
+### Rust (`rust/`)
+
+Rust projects live as submodules under `rust/<name>/`. Built binaries are
+**per-platform and never committed** — they go into `bin/` (gitignored) via
+`shell/build-sgrep.sh`, which copies every artifact `bin/` needs into place
+(sgrep's lexical binary execs `sgrep-sem` from its own directory, so both
+land in `bin/`). To add another Rust tool, follow that pattern: build from
+the submodule into a local-disk dir, install the binaries into `bin/`, and
+gitignore them.
+
 ## Claude Code Integration
 
 Shared agents, commands, and skills are symlinked into each project's `.claude/` directory by `shell/setup-claude-links.sh` (runs as `postCreateCommand` in devcontainers). The script links everything in `agents/`, `commands/`, and `skills/` automatically — just drop files in the right directory.
@@ -181,3 +201,5 @@ inside the source skill dir).
 |---|---|---|
 | `term-agent` | Python | Stateless terminal agent for Claude Code using tmux |
 | `ta` | alias | Shorthand for `term-agent` |
+| `sgrep` | Rust | Passage-level BM25 + semantic search (ripgrep-style CLI). Binary gitignored; rebuild with `shell/build-sgrep.sh`. Semantic mode uses `SGREP_MODEL_DIR` (set in `.rc`, model fetched by `shell/get-sgrep-model.sh`). |
+| `sgrep-sem` | Rust | Semantic engine exec'd by `sgrep` — must stay beside it in `bin/`. |

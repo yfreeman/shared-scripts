@@ -31,10 +31,28 @@ else
   echo "term-agent already installed."
 fi
 
-# Populate submodules (python/term-agent — provides the skill files that
-# skills/terminal-session symlinks into)
+# Populate submodules (python/term-agent, rust/sgrep — term-agent provides
+# the skill files that skills/terminal-session symlinks into; rust/sgrep is
+# the source of the sgrep binaries)
 if [ -f "$SHARED_DIR/.gitmodules" ]; then
   git -C "$SHARED_DIR" submodule update --init --recursive
+fi
+
+# sgrep: build the binaries if a Rust toolchain is present (skipped
+# otherwise — the per-platform binaries in bin/ are gitignored, so a box
+# without cargo just doesn't get sgrep until it has a toolchain).
+if command -v cargo >/dev/null 2>&1 || [ -x "$HOME/.cargo/bin/cargo" ]; then
+  echo "Building sgrep..."
+  SH="$(command -v cargo >/dev/null 2>&1 && echo cargo || echo "$HOME/.cargo/bin/cargo")"
+  PATH="$(dirname "$SH"):$PATH" "$SHARED_DIR/shell/build-sgrep.sh"
+else
+  echo "cargo not found — skipping sgrep build (run shell/build-sgrep.sh after installing Rust)."
+fi
+
+# sgrep semantic model (~396 MB, gitignored under models/). Skipped with
+# SGREP_SKIP_MODEL=1, e.g. on machines that won't use --semantic.
+if [ "${SGREP_SKIP_MODEL:-0}" != 1 ] && [ -x "$SHARED_DIR/bin/sgrep" ]; then
+  "$SHARED_DIR/shell/get-sgrep-model.sh"
 fi
 
 # Add shared-scripts .rc to shell rc file
