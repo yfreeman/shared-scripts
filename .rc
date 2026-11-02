@@ -1,6 +1,12 @@
 SHARED_SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 export PATH="$SHARED_SCRIPTS_DIR/bin:$HOME/.local/bin:$PATH"
 
+# sgrep semantic mode: embedding model lives in shared-scripts/models/
+# (gitignored; populate with shell/get-sgrep-model.sh). The same absolute
+# path works in every container because they all bind-mount this checkout
+# — host path or /usr/local/shared-scripts/... as resolved by $SHARED_SCRIPTS_DIR.
+export SGREP_MODEL_DIR="$SHARED_SCRIPTS_DIR/models/granite-97m-r2"
+
 alias ta='term-agent'
 alias edc='enter-container'
 alias chrome='start-chrome'

@@ -7,3 +7,6 @@
 # builds are not committed anywhere — ship them in bin/ locally only.
 bin/sgrep
 bin/sgrep-sem
+# Embedding model for sgrep's semantic mode (shell/get-sgrep-model.sh
+# downloads it; ~390 MB, never committed).
+models/
