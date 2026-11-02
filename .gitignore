@@ -3,3 +3,7 @@
 .env.local
 .playwright-cli/
 .claude/
+# Per-platform binaries built from rust/sgrep (see shell/build-sgrep.sh);
+# builds are not committed anywhere — ship them in bin/ locally only.
+bin/sgrep
+bin/sgrep-sem
