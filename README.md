@@ -157,14 +157,23 @@ you to read when present.
 `setup-claude-links.sh` links it into the target home as `~/CLAUDE.md` +
 `~/AGENTS.md` with this precedence:
 
-- a **regular file** `~/CLAUDE.md` always wins (image-owned personas like
-  wordpress-dev's are never touched),
+- a **regular file** `~/CLAUDE.md` wins as a safety net (nothing should
+  occupy it any more — see the layering convention below),
 - an existing **symlink** (including the legacy
   `~/CLAUDE.md → /etc/agent-container-dev.md`) is replaced by the shared
   default,
 - containers without the shared-scripts mount get no persona from here —
   their entrypoints' `agent-container-dev.md` fallback still applies
   (dev-base `entrypoint-tail.sh` / `agent` image `entrypoint.sh`).
+
+**Layering convention:** container/workspace-specific guidance does *not*
+replace this home file — coding agents (Claude Code, Codex, pi) merge
+`CLAUDE.md`/`AGENTS.md` hierarchically from home down to the cwd, so the
+right shape is an extra doc deeper in the tree that wins on conflicts and
+never hides the base layer. Example: wordpress-dev installs its
+WordPress-specific doc at `/home/agent/projects/CLAUDE.md` (regenerated
+from the image on every start by its entrypoint), so agents working in
+any repo under `projects/` see persona + WP layer together.
 
 Re-linking runs on every container start, so editing the root `CLAUDE.md`
 here takes effect in all mounted containers on their next restart.

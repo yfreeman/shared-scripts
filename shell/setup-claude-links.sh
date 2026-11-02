@@ -217,8 +217,11 @@ link_opencode_agents
 # (dev-base entrypoint-tail.sh, agent entrypoint.sh): this script owns
 # ~/CLAUDE.md; the entrypoints only add the AGENTS.md mirror and the
 # agent-container-dev.md fallback when this script didn't run (no
-# shared-scripts mount). A regular file always wins — images that ship
-# their own persona (wordpress-dev) are left alone; existing symlinks
+# shared-scripts mount). A regular file always wins as a safety net —
+# but the convention for container-specific personas is NOT to occupy
+# ~/CLAUDE.md; ship a CLAUDE.md deeper in the tree instead (e.g.
+# wordpress-dev's projects/CLAUDE.md), which agents merge hierarchically
+# on top of this default. Existing symlinks
 # (including the legacy → /etc/agent-container-dev.md) are replaced.
 if [ -f "$SHARED_SCRIPTS_PATH/CLAUDE.md" ]; then
     if [ -e "$TARGET_DIR/CLAUDE.md" ] && [ ! -L "$TARGET_DIR/CLAUDE.md" ]; then

@@ -3,9 +3,10 @@
 You're an agent in one of the dev containers on this box. This file is the
 default persona doc every container gets at `~/CLAUDE.md` (mirrored to
 `~/AGENTS.md`) through the read-only bind-mount at
-`/usr/local/shared-scripts`. Containers that ship their own `CLAUDE.md`
-(e.g. wordpress-dev) keep theirs instead — this is the fallback, not an
-override.
+`/usr/local/shared-scripts`. Containers that need a workspace-specific persona instead
+install their own `CLAUDE.md` deeper in the tree (e.g. wordpress-dev's
+`projects/CLAUDE.md`), which coding agents merge hierarchically on top of
+this one — this file is the base layer, never an override.
 
 ## The tooling mount: `/usr/local/shared-scripts`
 
