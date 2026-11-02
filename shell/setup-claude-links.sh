@@ -212,4 +212,27 @@ link_opencode_agents() {
 mkdir -p "$TARGET_DIR/.opencode"
 link_opencode_agents
 
-echo "✓ .claude/.agents/.codex/.opencode/.pi symlinks set up (skills, extensions, agents)"
+# Home-level default persona: ~/CLAUDE.md (mirrored by ~/AGENTS.md) links to
+# this checkout's CLAUDE.md. Contract with the container entrypoints
+# (dev-base entrypoint-tail.sh, agent entrypoint.sh): this script owns
+# ~/CLAUDE.md; the entrypoints only add the AGENTS.md mirror and the
+# agent-container-dev.md fallback when this script didn't run (no
+# shared-scripts mount). A regular file always wins — images that ship
+# their own persona (wordpress-dev) are left alone; existing symlinks
+# (including the legacy → /etc/agent-container-dev.md) are replaced.
+if [ -f "$SHARED_SCRIPTS_PATH/CLAUDE.md" ]; then
+    if [ -e "$TARGET_DIR/CLAUDE.md" ] && [ ! -L "$TARGET_DIR/CLAUDE.md" ]; then
+        echo "  keeping $TARGET_DIR/CLAUDE.md (regular file — image-owned persona)"
+    else
+        ln -sfn "$SHARED_SCRIPTS_PATH/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
+        echo "  linked: CLAUDE.md -> shared default persona"
+    fi
+    if [ -e "$TARGET_DIR/AGENTS.md" ] && [ ! -L "$TARGET_DIR/AGENTS.md" ]; then
+        echo "  keeping $TARGET_DIR/AGENTS.md (regular file)"
+    else
+        ln -sfn CLAUDE.md "$TARGET_DIR/AGENTS.md"
+        echo "  linked: AGENTS.md -> CLAUDE.md"
+    fi
+fi
+
+echo "✓ .claude/.agents/.codex/.opencode/.pi symlinks + default persona set up"

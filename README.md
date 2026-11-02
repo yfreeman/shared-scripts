@@ -9,7 +9,12 @@ shared-scripts/
 ├── .rc              # Shell config: adds bin/ to PATH, aliases
 ├── .gitmodules      # Submodules — python/term-agent, rust/sgrep
 ├── install.sh       # One-time setup script
-├── bin/             # Entrypoints for all scripts (wrappers/symlinks)
+├── bin/             # Entrypoints for all scripts (wrappers/symlinks;
+│                    #   gitignored per-platform binaries: sgrep, sgrep-sem)
+├── CLAUDE.md        # default agent persona — linked into ~/CLAUDE.md
+│                    #   (+ ~/AGENTS.md mirror) of every container that
+│                    #   bind-mounts this checkout; see "Default persona"
+├── AGENTS.md        # symlink -> CLAUDE.md
 ├── python/          # Python scripts (each in its own subdirectory)
 │   └── term-agent/  # ↳ git submodule (github.com/yfreeman/term-agent)
 ├── rust/            # Rust projects
@@ -137,6 +142,32 @@ the submodule into a local-disk dir, install the binaries into `bin/`, and
 gitignore them.
 
 ## Claude Code Integration
+
+### Default persona (`CLAUDE.md`)
+
+The repo-root `CLAUDE.md` (`AGENTS.md` is a symlink to it) is the default
+persona doc for agents running **inside the dev containers** — tooling
+mount layout, the tools on PATH (`sgrep` incl. semantic mode, `ta`,
+`age-*`), house rules for a container home on a persistent volume. It's
+container-facing by design: box-specific facts (steel IPs, network
+topology) live in `agent-container-dev.md` in the agents-server repo,
+bind-mounted at `/etc/agent-container-dev.md`, which the persona doc tells
+you to read when present.
+
+`setup-claude-links.sh` links it into the target home as `~/CLAUDE.md` +
+`~/AGENTS.md` with this precedence:
+
+- a **regular file** `~/CLAUDE.md` always wins (image-owned personas like
+  wordpress-dev's are never touched),
+- an existing **symlink** (including the legacy
+  `~/CLAUDE.md → /etc/agent-container-dev.md`) is replaced by the shared
+  default,
+- containers without the shared-scripts mount get no persona from here —
+  their entrypoints' `agent-container-dev.md` fallback still applies
+  (dev-base `entrypoint-tail.sh` / `agent` image `entrypoint.sh`).
+
+Re-linking runs on every container start, so editing the root `CLAUDE.md`
+here takes effect in all mounted containers on their next restart.
 
 Shared agents, commands, and skills are symlinked into each project's `.claude/` directory by `shell/setup-claude-links.sh` (runs as `postCreateCommand` in devcontainers). The script links everything in `agents/`, `commands/`, and `skills/` automatically — just drop files in the right directory.
 
