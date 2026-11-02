@@ -1,6 +1,6 @@
 ---
 name: age-secrets
-description: Manage age-encrypted secrets shared across repos and devices via SSH-key recipient groups (the age-store). Use when adding/rotating a device key, onboarding a repo's secrets, encrypting or decrypting a .age file, or fixing "age: no identity matched any of the recipients". Triggers on age-store, .age-secrets, age-reencrypt, recipients.txt/groups.conf, or "a container/device can't decrypt the .age file".
+description: 'Manage age-encrypted secrets shared across repos and devices via SSH-key recipient groups (the age-store). Use when adding/rotating a device key, onboarding a repo''s secrets, encrypting or decrypting a .age file, or fixing "age: no identity matched any of the recipients". Triggers on age-store, .age-secrets, age-reencrypt, recipients.txt/groups.conf, or "a container/device can''t decrypt the .age file".'
 allowed-tools: Bash, Read, Edit
 ---
 
