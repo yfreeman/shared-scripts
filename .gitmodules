@@ -1,3 +1,6 @@
 [submodule "python/term-agent"]
 	path = python/term-agent
 	url = git@github.com:yfreeman/term-agent.git
+[submodule "rust/sgrep"]
+	path = rust/sgrep
+	url = git@github-personal:yfreeman/sgrep.git

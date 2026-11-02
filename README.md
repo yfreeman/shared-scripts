@@ -7,11 +7,14 @@ A collection of personal CLI scripts organized by language, with a unified `bin/
 ```
 shared-scripts/
 ├── .rc              # Shell config: adds bin/ to PATH, aliases
-├── .gitmodules      # Submodules — currently python/term-agent
+├── .gitmodules      # Submodules — python/term-agent, rust/sgrep
 ├── install.sh       # One-time setup script
 ├── bin/             # Entrypoints for all scripts (wrappers/symlinks)
 ├── python/          # Python scripts (each in its own subdirectory)
 │   └── term-agent/  # ↳ git submodule (github.com/yfreeman/term-agent)
+├── rust/            # Rust projects
+│   └── sgrep/       # ↳ git submodule (github-personal/yfreeman/sgrep):
+│                    #   passage-level BM25 search, ripgrep-style CLI
 ├── node/            # Node.js scripts
 ├── shell/           # Shell scripts (includes setup-claude-links.sh, age-*.sh)
 ├── age-store/       # Shared age secret recipients: keys/ + groups.conf (see its README)
@@ -44,7 +47,7 @@ source ~/.zshrc  # or ~/.bashrc
 - `uv tool install` the `term-agent` CLI from
   `git+https://github.com/yfreeman/term-agent.git` (pipx-equivalent)
 - `git submodule update --init --recursive` so submodules
-  (currently `python/term-agent`) are populated — needed so
+  (`python/term-agent`, `rust/sgrep`) are populated — needed so
   `skills/terminal-session` resolves
 - Add `source .../shared-scripts/.rc` to your shell rc file
   (`~/.zshrc`, `~/.bashrc`, or `~/.profile` depending on `$SHELL`)
