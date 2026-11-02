@@ -150,6 +150,57 @@ through a session's own `websocketUrl` instead — it's built from steel's
   is dual-homed onto `data` too and the bridge IP is directly reachable
   from there.
 
+## Known crash: a page-close race kills the whole shared process
+
+Confirmed 2026-11-02, while running a Playwright acceptance suite (many
+sequential `browser.newContext()` sessions, each navigating to a live page)
+against this box's `steel` container. What looks at first like the
+already-known `page.goto` hang (see below) can actually be the **entire
+`steel` process crashing**, not just a slow response:
+
+```
+TargetCloseError: Protocol error (Page.addScriptToEvaluateOnNewDocument):
+Session closed. Most likely the page has been closed.
+    at ... installMouseHelper (file:///app/api/build/utils/browser.js:31:16)
+    at CDPService.handleNewTarget (file:///app/api/build/services/cdp/cdp.service.js:250:21)
+```
+
+This is an **uncaught exception inside steel's own CDP instrumentation** — a
+race between a page closing and steel's `handleNewTarget` trying to attach
+`installMouseHelper` to it — not a bug in the calling code or in whatever
+page it was navigating to. The uncaught rejection kills the container's Node
+process; Docker's restart policy brings it back a few seconds later, but
+every session in flight at that moment gets `ECONNREFUSED` or `getaddrinfo
+ENOTFOUND steel`, and the crash can outlast a couple of client-side retries.
+
+**How to tell this is what's happening** (vs. an ordinary slow page):
+```bash
+docker logs steel --tail 60 | grep -A8 TargetCloseError   # the crash itself
+docker inspect steel --format 'RestartCount: {{.RestartCount}}, StartedAt: {{.State.StartedAt}}'
+# RestartCount climbing across a test run = steel is crash-looping, not just slow
+```
+
+**What to do about it:**
+- Don't just raise retry counts and move on if you're seeing `ECONNREFUSED`/
+  `ENOTFOUND steel` rather than a plain timeout — that's a different failure
+  mode (total outage, not latency) and retries only help if steel is back up
+  by the time the retry fires.
+- Before re-running a failed suite, check `RestartCount` first. If it's
+  climbing or just bumped, give it 30–60s and confirm `curl
+  http://steel:3000/v1/sessions` responds cleanly before retrying — hammering
+  a crash-looping container immediately tends to just trigger it again.
+- This is a bug in the `steel` image itself (steel-dev/steel-browser), not
+  fixable from a consuming container. If it's happening often enough to
+  block real work, it's worth upgrading the image or filing upstream rather
+  than continuing to work around it per-task.
+- Separately (and already partly mitigated via `retries: 2` in affected
+  `playwright.config.js` files): `steel` also genuinely *hangs* on
+  `page.goto` for 30–45s under sustained use without crashing, confirmed by
+  timing an identical navigation via a raw script (reliably 2–3s) against
+  the same navigation through a test runner (intermittently 45s+). That's a
+  separate, milder issue from the crash above — don't conflate the two when
+  diagnosing a failure.
+
 ## Further reading
 
 - `agent-container-dev.md` — fuller Python examples, visual-testing/pixel-diff
