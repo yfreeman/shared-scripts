@@ -1,10 +1,10 @@
 ---
-name: playwright-cli
-description: Automate browser interactions, test web pages and work with Playwright tests.
+name: playwright-cli-cdp
+description: Drive an already-running browser over CDP with the playwright-cli binary. Attach-only — never launches a browser. Use for Steel or any Chrome that exposes a CDP websocket. Not the Playwright run-server path (that is attach --endpoint, a different skill).
 allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*) Bash(playwright-cdp) Bash(playwright-attach:*)
 ---
 
-# Browser Automation with playwright-cli
+# Browser automation over CDP (playwright-cli-cdp)
 
 ## Connection model
 

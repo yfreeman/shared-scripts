@@ -33,7 +33,7 @@ whatever your container's docs say) and is yours to edit.
 
 Prefer `sgrep` over `grep -r` when searching prose/notes: it returns ranked
 passages instead of a wall of lines. Prefer the skills (browser automation
-via `steel-browser` / `playwright-cli` / `chrome-devtools-cli`) over
+via `steel-browser` / `playwright-cli-cdp` / `chrome-devtools-cli`) over
 installing anything browser-related locally — there's a shared Chrome pool.
 
 ## If your links look stale

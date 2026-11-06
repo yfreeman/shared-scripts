@@ -1,6 +1,6 @@
 ---
 name: steel-browser
-description: Reference info for `steel`, the shared headless-Chrome pool running on this box — what it is, its ports/addresses, how to create and release a session, and how to hand that session's CDP endpoint to the playwright-cli or chrome-devtools-cli skill. Use whenever a task needs browser automation on this box and a session needs to be stood up before playwright-cli/chrome-devtools-cli can attach. Triggers on "steel", "steel-browser", "headless chrome", or when playwright-attach/chrome-devtools-attach have no browser to find.
+description: Reference info for `steel`, the shared headless-Chrome pool running on this box — what it is, its ports/addresses, how to create and release a session, and how to hand that session's CDP endpoint to the playwright-cli-cdp or chrome-devtools-cli skill. Use whenever a task needs browser automation on this box and a session needs to be stood up before playwright-cli-cdp/chrome-devtools-cli can attach. Triggers on "steel", "steel-browser", "headless chrome", or when playwright-attach/chrome-devtools-attach have no browser to find.
 allowed-tools: Bash(curl:*) Bash(playwright-cli:*) Bash(playwright-attach:*) Bash(chrome-devtools:*) Bash(chrome-devtools-attach:*)
 ---
 
@@ -8,7 +8,7 @@ allowed-tools: Bash(curl:*) Bash(playwright-cli:*) Bash(playwright-attach:*) Bas
 
 **This skill is reference info only — it doesn't drive the browser itself.**
 Use it to stand up (or find) a steel session and get its CDP endpoint, then
-hand that endpoint to **playwright-cli** or **chrome-devtools-cli** for the
+hand that endpoint to **playwright-cli-cdp** or **chrome-devtools-cli** for the
 actual automation (navigation, clicking, snapshots, etc.).
 
 ## What it is
@@ -57,7 +57,7 @@ curl -s -X POST http://172.17.0.3:3000/v1/sessions \
 ```
 
 `websocketUrl` is the CDP endpoint for *this* session — hand it to
-playwright-cli/chrome-devtools-cli (see below). Optional body fields:
+the playwright-cli-cdp / chrome-devtools-cli skills (see below). Optional body fields:
 
 - `"userDataDir": "/profiles/<name>"` — persistent profile (cookies, login
   state). One path per *concurrent* identity — Chrome locks the directory,
@@ -81,20 +81,20 @@ session if the caller swallows the error (a real bug found and fixed
 `agent-container-dev.md` now use the correct route). Sessions aren't free
 and the pool is shared by the whole box — always release.
 
-## Connecting playwright-cli or chrome-devtools-cli to a session
+## Connecting playwright-cli-cdp or chrome-devtools-cli to a session
 
 Both take the session's `websocketUrl` directly, but through **different
 flags** — verified empirically against this exact steel instance, since the
 obvious approach (discovery-based `--browserUrl` / plain `PLAYWRIGHT_CDP_ENDPOINT`
 pointed at :9223) does not work here (see "Raw CDP" below).
 
-**playwright-cli** — works via the normal wrapper, just export the session's
+**playwright-cli-cdp** — the CDP attach skill. The binary is still `playwright-cli`. Works via the normal wrapper, just export the session's
 URL first so it skips endpoint discovery:
 
 ```bash
 export PLAYWRIGHT_CDP_ENDPOINT="ws://172.17.0.3:3000/"   # from websocketUrl
 playwright-attach my-session
-# ...use playwright-cli -s=my-session <command> as normal (see that skill)...
+# ...use playwright-cli -s=my-session <command> as normal (see the playwright-cli-cdp skill)...
 ```
 
 Equivalently, direct (no wrapper): `playwright-cli attach --cdp="<websocketUrl>" --session=my-session`.
