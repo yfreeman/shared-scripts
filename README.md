@@ -220,7 +220,7 @@ Claude's `sonnet`/`haiku`).
 | `terminal-session` | Persistent tmux-backed terminal sessions. Symlink to `../python/term-agent/terminal-session-skill/` (so the skill ships from the term-agent submodule — run `git submodule update --init` if it's empty). |
 | `pr-review` | Local PR-Agent review loop against a git diff via the `pr-agent` container. Uses `bin/pr-review`. |
 | `tuicr` | Attach to / drive `tuicr` TUI review sessions and launch a review pane (tmux, Zellij, cmux, Rex, or Herdr) via its bundled wrappers. Vendored verbatim from `agavra/tuicr`'s own `skills/tuicr/`. |
-| `git` | Open `lazygit` in a tmux split pane for interactive staging/committing/branching. tmux-only for now (the multiplexer currently in use); add wrapper variants later the way `tuicr` has one per multiplexer. |
+| `git` | Open `lazygit` in a floating tmux popup (`display-popup`, ~95% of the screen) for interactive staging/committing/branching. tmux-only for now (the multiplexer currently in use); add wrapper variants later the way `tuicr` has one per multiplexer. |
 
 ### Extensions (`pi-extensions/`)
 

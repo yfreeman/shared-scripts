@@ -2,8 +2,8 @@
 set -e -u -o pipefail
 
 # Configuration - override via environment variables
-LAZYGIT_PANE_POSITION="${LAZYGIT_PANE_POSITION:-top}"   # top or bottom
-LAZYGIT_PANE_SIZE="${LAZYGIT_PANE_SIZE:-80}"              # percentage of the calling pane
+LAZYGIT_POPUP_SIZE="${LAZYGIT_POPUP_SIZE:-95}"        # percent of the screen, width and height
+LAZYGIT_WAIT_TIMEOUT="${LAZYGIT_WAIT_TIMEOUT:-300}"    # seconds to wait for another popup to close
 
 # Colors for output
 RED='\033[0;31m'
@@ -27,21 +27,21 @@ usage() {
   cat << EOF
 Usage: $(basename "$0") [directory]
 
-Launch lazygit in a tmux split pane for the given repository.
+Launch lazygit in a floating tmux popup over the calling pane.
 
 Arguments:
   directory    Git repository directory to open (default: current directory)
 
 Environment variables:
-  LAZYGIT_PANE_POSITION  Position of the pane: top or bottom (default: top)
-  LAZYGIT_PANE_SIZE       Size of pane as percentage of the calling pane (default: 80)
-  LAZYGIT_WAIT_TIMEOUT    Seconds to wait for another lazygit in this window to
-                          close before giving up (default: 300)
+  LAZYGIT_POPUP_SIZE    Width/height of the popup, as a percentage of the
+                        screen (default: 95)
+  LAZYGIT_WAIT_TIMEOUT  Seconds to wait for another lazygit popup on this
+                        pane to close before giving up (default: 300)
 
 Examples:
   $(basename "$0")                      # Open lazygit for the current directory
   $(basename "$0") ~/project            # Open lazygit for ~/project
-  LAZYGIT_PANE_SIZE=70 $(basename "$0") # Use 70% of screen
+  LAZYGIT_POPUP_SIZE=80 $(basename "$0") # Use 80% of the screen
 EOF
 }
 
@@ -66,84 +66,45 @@ check_repo() {
   return 1
 }
 
-check_lazygit_running() {
-  # Only the caller's window counts: the new pane would open there, while a
-  # lazygit in another window belongs to another agent session and can stay
-  # open alongside this one.
-  local caller_pane="${TMUX_PANE:-}"
-  if [[ -z "$caller_pane" ]]; then
-    caller_pane=$(tmux display-message -p '#{pane_id}')
-  fi
-  tmux list-panes -t "$caller_pane" -F '#{pane_current_command}' 2>/dev/null | grep -q '^lazygit$'
-}
-
-wait_for_running() {
-  local timeout="${LAZYGIT_WAIT_TIMEOUT:-300}"
-  local waited=0
-  check_lazygit_running || return 0
-  log_warn "lazygit is already running in another pane; waiting up to ${timeout}s for it to close"
-  while check_lazygit_running; do
-    if (( waited >= timeout )); then
-      log_error "lazygit is still running after ${timeout}s; rerun once it's closed"
-      exit 75
-    fi
-    sleep 1
-    waited=$(( waited + 1 ))
-  done
-  log_info "The other lazygit closed; launching this one"
-}
-
-launch_lazygit_pane() {
+# tmux popups aren't regular panes, so there's no `list-panes` entry to probe
+# for an already-open one. Serialize on a lock file keyed to the calling pane
+# instead: a second launch from the same pane waits for the first popup to
+# close rather than tmux silently dropping or replacing it.
+launch_lazygit_popup() {
   local target_dir="$1"
 
-  # Split the pane this wrapper runs in, not whichever pane is focused. Without
-  # an explicit target tmux uses the client's active pane — the one the human
-  # is looking at — so an agent's lazygit lands in someone else's pane and
-  # blocks it. tmux sets $TMUX_PANE for every pane it spawns.
   local caller_pane="${TMUX_PANE:-}"
   if [[ -z "$caller_pane" ]]; then
     caller_pane=$(tmux display-message -p '#{pane_id}')
   fi
 
-  # Get the caller's height and calculate lines (using -l instead of -p to avoid "size missing" error)
-  local pane_height
-  pane_height=$(tmux display-message -p -t "$caller_pane" '#{pane_height}')
-  local pane_lines=$(( pane_height * LAZYGIT_PANE_SIZE / 100 ))
+  local lock_name
+  lock_name=$(printf '%s' "$caller_pane" | tr -c 'A-Za-z0-9' '_')
+  local lock_file="${TMPDIR:-/tmp}/lazygit-popup-${lock_name}.lock"
 
-  local split_args=()
-  if [[ "$LAZYGIT_PANE_POSITION" == "top" ]]; then
-    split_args+=(-b)  # Create pane above
+  exec 9> "$lock_file"
+  if ! flock -w "$LAZYGIT_WAIT_TIMEOUT" 9; then
+    log_error "lazygit is still open in another popup on this pane after ${LAZYGIT_WAIT_TIMEOUT}s; rerun once it's closed"
+    exit 75
   fi
-  # For bottom, no -b flag needed (default)
-  split_args+=(-l "$pane_lines")
-  split_args+=(-c "$target_dir")
 
-  log_info "Launching lazygit in $LAZYGIT_PANE_POSITION pane of $caller_pane (${pane_lines} lines, ${LAZYGIT_PANE_SIZE}%)"
+  log_info "Launching lazygit in a floating popup (${LAZYGIT_POPUP_SIZE}% of the screen)"
   log_info "Directory: $target_dir"
 
-  # Create unique channel for wait-for
-  local wait_channel="lazygit-$$"
+  # tmux's CLI call for display-popup blocks until the popup closes (-E
+  # closes it as soon as the shell-command below exits), unlike split-window
+  # / new-window, which detach immediately and need an explicit wait-for
+  # signal to block on.
+  tmux display-popup -E \
+    -t "$caller_pane" \
+    -d "$target_dir" \
+    -w "${LAZYGIT_POPUP_SIZE}%" \
+    -h "${LAZYGIT_POPUP_SIZE}%" \
+    -T " lazygit " \
+    "cd '$target_dir' && lazygit"
 
-  # Create the split pane with lazygit, signal when done.
-  # Use -d to not switch, -P to print pane info so we can capture the ID.
-  local new_pane_id
-  new_pane_id=$(tmux split-window -d -P -F '#{pane_id}' -t "$caller_pane" "${split_args[@]}" \
-    "cd '$target_dir' && lazygit; tmux wait-for -S '$wait_channel'")
-
-  # Focus the new pane only when the caller already has focus in its window.
-  # If the human is working in another pane, leave them alone — they will
-  # come back to the agent's pane and find lazygit waiting next to it.
-  if [[ "$(tmux display-message -p -t "$caller_pane" '#{pane_active}')" == "1" ]]; then
-    tmux select-pane -t "$new_pane_id"
-  else
-    log_info "Caller pane is not focused; leaving focus where it is"
-  fi
-
-  log_info "lazygit is running in pane $new_pane_id"
-  log_info "Waiting for lazygit to exit..."
-
-  # Block until lazygit exits
-  tmux wait-for "$wait_channel"
+  flock -u 9
+  exec 9>&-
 
   log_info "lazygit finished"
 }
@@ -178,11 +139,7 @@ main() {
     exit 1
   fi
 
-  # Wait for a lazygit that is already open in this window, or this launch
-  # would stack a second pane on top of it.
-  wait_for_running
-
-  launch_lazygit_pane "$target_dir"
+  launch_lazygit_popup "$target_dir"
 }
 
 main "$@"
