@@ -2,8 +2,7 @@
 set -e -u -o pipefail
 
 # Configuration - override via environment variables
-LAZYGIT_POPUP_SIZE="${LAZYGIT_POPUP_SIZE:-95}"        # percent of the screen, width and height
-LAZYGIT_WAIT_TIMEOUT="${LAZYGIT_WAIT_TIMEOUT:-300}"    # seconds to wait for another popup to close
+LAZYGIT_POPUP_SIZE="${LAZYGIT_POPUP_SIZE:-95}"  # percent of the screen, width and height
 
 # Colors for output
 RED='\033[0;31m'
@@ -27,20 +26,21 @@ usage() {
   cat << EOF
 Usage: $(basename "$0") [directory]
 
-Launch lazygit in a floating tmux popup over the calling pane.
+Launch lazygit in a floating tmux popup over the calling pane, and return
+immediately without waiting for it to close. Prints a ref between
+=== LAZYGIT POPUP === markers; pass that ref to lazygit-close.sh to close
+the popup later.
 
 Arguments:
   directory    Git repository directory to open (default: current directory)
 
 Environment variables:
-  LAZYGIT_POPUP_SIZE    Width/height of the popup, as a percentage of the
-                        screen (default: 95)
-  LAZYGIT_WAIT_TIMEOUT  Seconds to wait for another lazygit popup on this
-                        pane to close before giving up (default: 300)
+  LAZYGIT_POPUP_SIZE  Width/height of the popup, as a percentage of the
+                      screen (default: 95)
 
 Examples:
-  $(basename "$0")                      # Open lazygit for the current directory
-  $(basename "$0") ~/project            # Open lazygit for ~/project
+  $(basename "$0")                       # Open lazygit for the current directory
+  $(basename "$0") ~/project             # Open lazygit for ~/project
   LAZYGIT_POPUP_SIZE=80 $(basename "$0") # Use 80% of the screen
 EOF
 }
@@ -66,47 +66,49 @@ check_repo() {
   return 1
 }
 
-# tmux popups aren't regular panes, so there's no `list-panes` entry to probe
-# for an already-open one. Serialize on a lock file keyed to the calling pane
-# instead: a second launch from the same pane waits for the first popup to
-# close rather than tmux silently dropping or replacing it.
 launch_lazygit_popup() {
   local target_dir="$1"
 
+  # Target the window this wrapper runs in, not whichever pane the human
+  # happens to be looking at. tmux sets $TMUX_PANE for every pane it spawns.
   local caller_pane="${TMUX_PANE:-}"
   if [[ -z "$caller_pane" ]]; then
     caller_pane=$(tmux display-message -p '#{pane_id}')
-  fi
-
-  local lock_name
-  lock_name=$(printf '%s' "$caller_pane" | tr -c 'A-Za-z0-9' '_')
-  local lock_file="${TMPDIR:-/tmp}/lazygit-popup-${lock_name}.lock"
-
-  exec 9> "$lock_file"
-  if ! flock -w "$LAZYGIT_WAIT_TIMEOUT" 9; then
-    log_error "lazygit is still open in another popup on this pane after ${LAZYGIT_WAIT_TIMEOUT}s; rerun once it's closed"
-    exit 75
   fi
 
   log_info "Launching lazygit in a floating popup (${LAZYGIT_POPUP_SIZE}% of the screen)"
   log_info "Directory: $target_dir"
 
   # tmux's CLI call for display-popup blocks until the popup closes (-E
-  # closes it as soon as the shell-command below exits), unlike split-window
-  # / new-window, which detach immediately and need an explicit wait-for
-  # signal to block on.
+  # closes it as soon as the shell-command below exits). Background it so
+  # this wrapper can return right away; the caller deals with the repo in
+  # the popup and closes it later with lazygit-close.sh.
   tmux display-popup -E \
     -t "$caller_pane" \
     -d "$target_dir" \
     -w "${LAZYGIT_POPUP_SIZE}%" \
     -h "${LAZYGIT_POPUP_SIZE}%" \
     -T " lazygit " \
-    "cd '$target_dir' && lazygit"
+    "cd '$target_dir' && lazygit" &
+  local popup_pid=$!
+  disown "$popup_pid" 2> /dev/null || true
 
-  flock -u 9
-  exec 9>&-
+  # Give it a moment to fail fast on something like "no current client"
+  # (no attached terminal) before reporting success.
+  sleep 0.3
+  if ! kill -0 "$popup_pid" 2> /dev/null; then
+    wait "$popup_pid" 2> /dev/null
+    log_error "tmux display-popup exited immediately — is a client attached to this session?"
+    exit 1
+  fi
 
-  log_info "lazygit finished"
+  log_info "lazygit is running in a popup on $caller_pane"
+  log_info "Already has a popup open for that window? tmux no-ops this call instead of stacking a second one; close the existing popup first if you want a different repo."
+
+  echo ""
+  echo "=== LAZYGIT POPUP ==="
+  echo "$caller_pane"
+  echo "=== END LAZYGIT POPUP ==="
 }
 
 main() {
