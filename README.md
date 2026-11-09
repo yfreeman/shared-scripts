@@ -245,3 +245,4 @@ inside the source skill dir).
 | `sgrep` | Rust | Passage-level BM25 + semantic search (ripgrep-style CLI). Binary gitignored; rebuild with `shell/build-sgrep.sh`. Semantic mode uses `SGREP_MODEL_DIR` (set in `.rc`, model fetched by `shell/get-sgrep-model.sh`). |
 | `sgrep-sem` | Rust | Semantic engine exec'd by `sgrep` — must stay beside it in `bin/`. |
 | `pr-review` | Bash | Wrapper around the `pr-agent` container for local diff reviews; writes JSON output and prints a short summary. |
+| `ssh-refresh` | Bash | `ssh-refresh <host>` forgets the stored host key(s) for an `~/.ssh/config` host (resolves HostName/Port/HostKeyAlias via `ssh -G`), so the next ssh prompts to accept the new key after a container is recreated. `-c` connects straight after. |
