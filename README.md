@@ -218,6 +218,7 @@ Claude's `sonnet`/`haiku`).
 |---|---|
 | `worktree` | Git worktree management skill |
 | `terminal-session` | Persistent tmux-backed terminal sessions. Symlink to `../python/term-agent/terminal-session-skill/` (so the skill ships from the term-agent submodule — run `git submodule update --init` if it's empty). |
+| `pr-review` | Local PR-Agent review loop against a git diff via the `pr-agent` container. Uses `bin/pr-review`. |
 
 ### Extensions (`pi-extensions/`)
 
@@ -243,3 +244,4 @@ inside the source skill dir).
 | `ta` | alias | Shorthand for `term-agent` |
 | `sgrep` | Rust | Passage-level BM25 + semantic search (ripgrep-style CLI). Binary gitignored; rebuild with `shell/build-sgrep.sh`. Semantic mode uses `SGREP_MODEL_DIR` (set in `.rc`, model fetched by `shell/get-sgrep-model.sh`). |
 | `sgrep-sem` | Rust | Semantic engine exec'd by `sgrep` — must stay beside it in `bin/`. |
+| `pr-review` | Bash | Wrapper around the `pr-agent` container for local diff reviews; writes JSON output and prints a short summary. |
