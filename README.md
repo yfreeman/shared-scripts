@@ -219,6 +219,7 @@ Claude's `sonnet`/`haiku`).
 | `worktree` | Git worktree management skill |
 | `terminal-session` | Persistent tmux-backed terminal sessions. Symlink to `../python/term-agent/terminal-session-skill/` (so the skill ships from the term-agent submodule — run `git submodule update --init` if it's empty). |
 | `pr-review` | Local PR-Agent review loop against a git diff via the `pr-agent` container. Uses `bin/pr-review`. |
+| `tuicr` | Attach to / drive `tuicr` TUI review sessions and launch a review pane (tmux, Zellij, cmux, Rex, or Herdr) via its bundled wrappers. Vendored verbatim from `agavra/tuicr`'s own `skills/tuicr/`. |
 
 ### Extensions (`pi-extensions/`)
 
